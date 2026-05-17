@@ -351,6 +351,16 @@ Recomendación:
 El backend inicial está en `backend/kika_orbit` y usa FastAPI + SQLAlchemy.
 La primera vista web vive en `backend/kika_orbit/web/static` y se sirve desde el mismo proceso para mantener el desarrollo simple.
 
+Estructura actual del repo:
+
+- `backend/kika_orbit`: producto principal Kika Orbit en FastAPI.
+- `backend/kika_orbit/web/static`: PWA y UI inicial.
+- `data`: ejemplos publicos propios de Kika, como `admin_roster.example.json`.
+- `docs`: decisiones de producto, seguridad, Google, RUT y requerimientos.
+- `legacy/castel-calendar`: calendario Castel preservado como base de referencia, no runtime principal.
+- `migrations`: migraciones Alembic para preparar PostgreSQL y despliegue serio.
+- `tests`: pruebas de API, dominio y seguridad base.
+
 Instalar dependencias:
 
 ```powershell
@@ -397,6 +407,13 @@ uv run ruff check .
 uv run pytest
 ```
 
+Migraciones:
+
+```powershell
+uv run alembic upgrade head
+uv run alembic revision --autogenerate -m "describe change"
+```
+
 Por defecto se usa SQLite en `.local/kika_orbit.db` para desarrollo rapido. La base objetivo del producto sigue siendo PostgreSQL; se configura cambiando `DATABASE_URL` en `.env`.
 
 ## Metodologia de trabajo
@@ -419,6 +436,12 @@ Por defecto se usa SQLite en `.local/kika_orbit.db` para desarrollo rapido. La b
 ## Identidad de administradores
 
 El acceso administrativo se modela por RUT unico + correo asociado + rol. El RUT completo no debe subirse al repo publico; para desarrollo local va en `.local/admin_roster.json`, mientras que el ejemplo publico esta en `data/admin_roster.example.json`. Mas detalle en [`docs/identidad-admin-rut.md`](docs/identidad-admin-rut.md).
+
+## Base Castel preservada
+
+El calendario de Castel se conserva en [`legacy/castel-calendar`](legacy/castel-calendar) porque aporta logica util para calendario mensual, reservas, avisos y bloqueos. La regla de trabajo es migrar ideas hacia Python/FastAPI con SQL y tests; no mezclar el PHP heredado como runtime principal de Kika Orbit salvo instruccion explicita.
+
+Los requerimientos reales resumidos desde el texto de Kika estan en [`docs/requerimientos-kika.md`](docs/requerimientos-kika.md).
 
 ## Qué podrías pedirme después
 

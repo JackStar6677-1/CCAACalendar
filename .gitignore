@@ -6,6 +6,14 @@ data/calendar_notices.json
 data/admin_login_locks.json
 data/admin_tools.json
 data/site.json
+legacy/castel-calendar/admin/mail_config.php
+legacy/castel-calendar/data/authorized_emails.json
+legacy/castel-calendar/data/calendar_store.json
+legacy/castel-calendar/data/calendar_backend.json
+legacy/castel-calendar/data/calendar_notices.json
+legacy/castel-calendar/data/admin_login_locks.json
+legacy/castel-calendar/data/admin_tools.json
+legacy/castel-calendar/data/site.json
 *.log
 *.tmp
 .env
