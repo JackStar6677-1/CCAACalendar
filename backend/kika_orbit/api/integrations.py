@@ -2,37 +2,56 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
+from sqlalchemy.orm import Session
 
+from kika_orbit.database import get_session
+from kika_orbit.integrations.google_calendar import (
+    GoogleCalendarTokenMissingError,
+    google_event_payload,
+    insert_google_calendar_event,
+    token_metadata,
+)
 from kika_orbit.integrations.google_oauth import (
     GoogleOAuthNotConfiguredError,
+    google_oauth_config_source,
     is_google_oauth_configured,
     make_flow,
     oauth_scopes,
     read_json,
     write_json,
 )
+from kika_orbit.models import Event
 from kika_orbit.settings import Settings, get_settings
 
 router = APIRouter(prefix="/api/integrations/google", tags=["integrations"])
 SettingsDep = Annotated[Settings, Depends(get_settings)]
+SessionDep = Annotated[Session, Depends(get_session)]
+
+
+def _mask_email(email: str) -> str:
+    return "configured" if email else ""
 
 
 @router.get("/status")
 def google_status(settings: SettingsDep) -> dict[str, object]:
-    token = read_json(settings.google_token_path)
+    token = token_metadata(settings)
     return {
         "provider": "google",
         "mode": "center_calendar",
         "account_role": "official_center_calendar",
-        "account_email": settings.google_center_account_email,
+        "account_email_configured": bool(settings.google_center_account_email),
+        "account_hint": _mask_email(settings.google_center_account_email),
         "calendar_id": settings.google_calendar_id,
         "configured": is_google_oauth_configured(settings),
+        "config_source": google_oauth_config_source(settings),
         "redirect_uri": settings.google_redirect_uri,
         "calendar_scope": settings.google_calendar_scopes,
         "gmail_scope": settings.google_gmail_scopes,
-        "token_present": bool(token),
+        "token_present": token["token_present"],
         "token_scopes": token.get("scopes", []),
         "internal_auth": "rut_password",
+        "ready_to_connect": is_google_oauth_configured(settings)
+        and bool(settings.google_center_account_email),
         "notes": [
             "Google OAuth conecta solo el calendario oficial del centro.",
             "Cada administradora entra con su cuenta interna de Kika Orbit.",
@@ -67,6 +86,51 @@ def google_login(
         },
     )
     return RedirectResponse(authorization_url)
+
+
+@router.post("/events/{event_id}/sync")
+def sync_google_event(
+    event_id: str,
+    session: SessionDep,
+    settings: SettingsDep,
+    dry_run: bool = Query(default=True),
+    confirm: str = Query(default=""),
+) -> dict[str, object]:
+    event = session.get(Event, event_id)
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found.")
+
+    payload = google_event_payload(event)
+    if dry_run:
+        return {
+            "mode": "dry_run",
+            "calendar_id": settings.google_calendar_id,
+            "payload": payload,
+        }
+
+    if confirm != "sync-google-calendar":
+        raise HTTPException(
+            status_code=400,
+            detail="Set confirm=sync-google-calendar to publish this event to Google Calendar.",
+        )
+
+    try:
+        google_event = insert_google_calendar_event(event, settings)
+    except GoogleCalendarTokenMissingError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+    event.google_calendar_id = settings.google_calendar_id
+    event.google_event_id = google_event.get("id")
+    event.source = "google_sync"
+    session.add(event)
+    session.commit()
+
+    return {
+        "mode": "synced",
+        "event_id": event.id,
+        "google_event_id": event.google_event_id,
+        "html_link": google_event.get("htmlLink"),
+    }
 
 
 @router.get("/callback", response_class=HTMLResponse)

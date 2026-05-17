@@ -4,6 +4,7 @@ import uuid
 from fastapi.testclient import TestClient
 from kika_orbit.domain.admin_roster import load_admin_roster
 from kika_orbit.domain.rut import is_valid_rut, mask_rut, normalize_rut
+from kika_orbit.integrations.google_oauth import is_google_oauth_configured
 from kika_orbit.main import app
 from kika_orbit.settings import Settings, get_settings
 
@@ -79,10 +80,71 @@ def test_google_integration_status_shape() -> None:
     assert payload["provider"] == "google"
     assert payload["mode"] == "center_calendar"
     assert payload["account_role"] == "official_center_calendar"
-    assert payload["account_email"] == ""
+    assert "account_email" not in payload
+    assert "account_email_configured" in payload
+    assert "account_hint" in payload
     assert payload["internal_auth"] == "rut_password"
     assert "configured" in payload
     assert payload["calendar_scope"] == "https://www.googleapis.com/auth/calendar.events"
+
+
+def test_google_oauth_can_use_local_client_secret_file(tmp_path) -> None:
+    secret_file = tmp_path / "client_secret.json"
+    secret_file.write_text(
+        json.dumps(
+            {
+                "web": {
+                    "client_id": "demo-client-id.apps.googleusercontent.com",
+                    "client_secret": "demo-client-secret",
+                    "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+                    "token_uri": "https://oauth2.googleapis.com/token",
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    settings = Settings(
+        google_client_id="",
+        google_client_secret="",
+        google_client_secret_file=str(secret_file),
+    )
+
+    assert is_google_oauth_configured(settings)
+
+
+def test_google_event_sync_preview_uses_calendar_payload() -> None:
+    with TestClient(app) as client:
+        organization_response = client.post(
+            "/api/organizations",
+            json={
+                "name": f"Universidad Sync {uuid.uuid4()}",
+                "slug": f"universidad-sync-{uuid.uuid4()}",
+                "domain_hint": "sync.example",
+            },
+        )
+        organization = organization_response.json()
+        event_response = client.post(
+            "/api/events",
+            json={
+                "organization_id": organization["id"],
+                "title": "Asamblea sincronizable",
+                "category": "centro",
+                "visibility": "organization",
+                "starts_at": "2026-05-28T10:00:00-04:00",
+                "ends_at": "2026-05-28T11:00:00-04:00",
+                "description": "Evento listo para previsualizar en Google Calendar.",
+            },
+        )
+        sync_response = client.post(
+            f"/api/integrations/google/events/{event_response.json()['id']}/sync"
+        )
+
+    assert sync_response.status_code == 200
+    payload = sync_response.json()
+    assert payload["mode"] == "dry_run"
+    assert payload["payload"]["summary"] == "Asamblea sincronizable"
+    assert payload["payload"]["extendedProperties"]["private"]["kika_orbit_event_id"]
 
 
 def test_rut_validation_and_masking() -> None:

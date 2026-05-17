@@ -7,6 +7,9 @@ const calendarGrid = document.querySelector("#calendar-grid");
 const agendaList = document.querySelector("#agenda-list");
 const metricEvents = document.querySelector("#metric-events");
 const metricHolidays = document.querySelector("#metric-holidays");
+const missionStrip = document.querySelector("#mission-strip");
+const googleStatusBadge = document.querySelector("#google-status-badge");
+const googleStatusDetail = document.querySelector("#google-status-detail");
 const dialog = document.querySelector("#event-dialog");
 const eventForm = document.querySelector("#event-form");
 const newEventButton = document.querySelector("#new-event-button");
@@ -18,6 +21,7 @@ let audioContext;
 let organizationId;
 let deferredInstallPrompt;
 let authSession;
+let orbitConfig;
 
 const fallbackEvents = [
   {
@@ -48,6 +52,29 @@ const fallbackEvents = [
 
 let events = [...fallbackEvents];
 let holidays = [];
+
+const fallbackConfig = {
+  modules: [
+    {
+      id: "auth",
+      label: "Acceso interno",
+      status: "Operativo",
+      detail: "RUT, clave propia y auditoria base.",
+    },
+    {
+      id: "calendar",
+      label: "Calendario vivo",
+      status: "En marcha",
+      detail: "Eventos, feriados y agenda mensual.",
+    },
+    {
+      id: "google",
+      label: "Google Calendar",
+      status: "Conectar",
+      detail: "OAuth del calendario oficial.",
+    },
+  ],
+};
 
 function getAudioContext() {
   audioContext ||= new AudioContext();
@@ -238,8 +265,57 @@ function renderAgenda() {
 function render() {
   metricEvents.textContent = String(events.length);
   metricHolidays.textContent = String(holidays.filter((holiday) => holiday.is_irrenunciable).length);
+  renderMissionStrip();
   renderCalendar();
   renderAgenda();
+}
+
+function renderMissionStrip() {
+  const modules = orbitConfig?.modules || fallbackConfig.modules;
+  const syncCard = missionStrip.querySelector(".sync-card");
+  missionStrip.replaceChildren(syncCard);
+
+  modules
+    .filter((module) => module.id !== "google")
+    .forEach((module, index) => {
+      const card = document.createElement("article");
+      card.className = `mission-card module-${module.id}`;
+      card.style.animationDelay = `${index * 70}ms`;
+      card.innerHTML = `
+        <span class="eyebrow">${module.label}</span>
+        <strong>${module.status}</strong>
+        <p>${module.detail}</p>
+      `;
+      missionStrip.append(card);
+    });
+}
+
+async function hydrateOrbitConfig() {
+  try {
+    const response = await fetch("/assets/kika-orbit.config.json");
+    orbitConfig = response.ok ? await response.json() : fallbackConfig;
+  } catch {
+    orbitConfig = fallbackConfig;
+  }
+  render();
+}
+
+async function hydrateGoogleStatus() {
+  try {
+    const response = await fetch("/api/integrations/google/status");
+    if (!response.ok) return;
+    const status = await response.json();
+    googleStatusBadge.textContent = status.ready_to_connect
+      ? "Listo para conectar"
+      : "Configuracion pendiente";
+    googleStatusDetail.textContent = status.token_present
+      ? "Token OAuth local detectado. La sincronizacion ya puede usar el calendario oficial."
+      : "OAuth configurado sin exponer la cuenta en el repo publico. Falta completar el consentimiento si aun no hay token.";
+    googleStatusBadge.dataset.ready = String(status.ready_to_connect);
+  } catch {
+    googleStatusBadge.textContent = "Sin conexion API";
+    googleStatusDetail.textContent = "La interfaz funciona offline, pero la API local no respondio.";
+  }
 }
 
 async function hydrateHolidays() {
@@ -411,5 +487,7 @@ if ("serviceWorker" in navigator) {
 }
 
 render();
+hydrateOrbitConfig();
 hydrateHolidays();
 hydrateFromApi();
+hydrateGoogleStatus();

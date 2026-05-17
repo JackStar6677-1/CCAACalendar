@@ -1,0 +1,39 @@
+{
+  "pilot": {
+    "organization": "Universidad Demo",
+    "center": "Psicologia",
+    "calendarOwnerLabel": "Cuenta oficial del centro",
+    "monthLabel": "Mayo 2026"
+  },
+  "modules": [
+    {
+      "id": "auth",
+      "label": "Acceso interno",
+      "status": "Operativo",
+      "detail": "RUT, clave propia, roles y auditoria inicial."
+    },
+    {
+      "id": "calendar",
+      "label": "Calendario vivo",
+      "status": "En marcha",
+      "detail": "Eventos, feriados chilenos y agenda mensual."
+    },
+    {
+      "id": "spaces",
+      "label": "Espacios",
+      "status": "Diseñado",
+      "detail": "Reservas y bloqueos listos para persistencia SQL."
+    },
+    {
+      "id": "google",
+      "label": "Google Calendar",
+      "status": "Conectar",
+      "detail": "OAuth del calendario oficial sin publicar datos sensibles."
+    }
+  ],
+  "spaces": [
+    { "id": "auditorio", "label": "Auditorio", "capacity": 120, "state": "Bloque crítico" },
+    { "id": "sala-reunion", "label": "Sala de reuniones", "capacity": 18, "state": "Disponible" },
+    { "id": "hall", "label": "Hall central", "capacity": 80, "state": "Coordinar DAE" }
+  ]
+}

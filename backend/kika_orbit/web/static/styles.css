@@ -123,6 +123,18 @@ button {
   transform: rotate(-16deg);
 }
 
+.brand-panel::after {
+  position: absolute;
+  right: -5rem;
+  bottom: -5rem;
+  width: min(38vw, 24rem);
+  aspect-ratio: 1;
+  content: "";
+  background: url("/assets/orbit-rings.svg") center / contain no-repeat;
+  opacity: 0.22;
+  pointer-events: none;
+}
+
 .brand-panel h1 {
   max-width: 13ch;
   margin: 1.8rem 0 1rem;
@@ -425,6 +437,65 @@ nav {
 
 .metrics {
   grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.mission-strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.mission-card {
+  position: relative;
+  overflow: hidden;
+  min-height: 9rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 24px;
+  padding: 1rem;
+  background:
+    linear-gradient(145deg, rgba(255, 122, 47, 0.09), rgba(143, 92, 255, 0.12)),
+    rgba(255, 255, 255, 0.052);
+  animation: rise-in 420ms ease both;
+}
+
+.mission-card::after {
+  position: absolute;
+  right: -2.2rem;
+  bottom: -2.4rem;
+  width: 7.5rem;
+  aspect-ratio: 1;
+  content: "";
+  border: 1px solid rgba(255, 209, 102, 0.24);
+  border-radius: 999px;
+}
+
+.mission-card strong {
+  display: block;
+  margin: 0.45rem 0;
+  font-size: 1.2rem;
+  letter-spacing: -0.03em;
+}
+
+.mission-card p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.sync-card {
+  border-color: rgba(255, 209, 102, 0.22);
+  background:
+    radial-gradient(circle at top right, rgba(255, 209, 102, 0.22), transparent 9rem),
+    linear-gradient(145deg, rgba(255, 122, 47, 0.14), rgba(143, 92, 255, 0.12)),
+    rgba(255, 255, 255, 0.052);
+}
+
+#google-status-badge[data-ready="true"] {
+  color: var(--green);
+}
+
+#google-status-badge[data-ready="false"] {
+  color: #ffb7a6;
 }
 
 .metrics article {
@@ -741,7 +812,8 @@ nav {
 @media (max-width: 1020px) {
   .login-view,
   .app-view,
-  .content-grid {
+  .content-grid,
+  .mission-strip {
     grid-template-columns: 1fr;
   }
 

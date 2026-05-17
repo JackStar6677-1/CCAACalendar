@@ -1,4 +1,4 @@
-const CACHE_NAME = "kika-orbit-pwa-v2";
+const CACHE_NAME = "kika-orbit-pwa-v3";
 const STATIC_ASSETS = [
   "/",
   "/offline",
@@ -6,6 +6,8 @@ const STATIC_ASSETS = [
   "/assets/styles.css?v=2",
   "/assets/app.js?v=2",
   "/assets/orbit-icon.svg",
+  "/assets/orbit-rings.svg",
+  "/assets/kika-orbit.config.json",
 ];
 
 self.addEventListener("install", (event) => {

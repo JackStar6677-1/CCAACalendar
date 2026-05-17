@@ -17,20 +17,48 @@ class GoogleOAuthNotConfiguredError(RuntimeError):
     pass
 
 
+def _read_client_secret_file(settings: Settings) -> dict[str, Any]:
+    path = Path(settings.google_client_secret_file)
+    if not path.exists():
+        return {}
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return {}
+    return payload.get("web") or payload.get("installed") or {}
+
+
 def is_google_oauth_configured(settings: Settings) -> bool:
-    return bool(settings.google_client_id and settings.google_client_secret)
+    if settings.google_client_id and settings.google_client_secret:
+        return True
+    file_config = _read_client_secret_file(settings)
+    return bool(file_config.get("client_id") and file_config.get("client_secret"))
+
+
+def google_oauth_config_source(settings: Settings) -> str:
+    if settings.google_client_id and settings.google_client_secret:
+        return "env"
+    if is_google_oauth_configured(settings):
+        return "client_secret_file"
+    return "missing"
 
 
 def google_client_config(settings: Settings) -> dict[str, Any]:
     if not is_google_oauth_configured(settings):
         raise GoogleOAuthNotConfiguredError("Google OAuth client id/secret are missing.")
 
+    file_config = _read_client_secret_file(settings)
+    client_id = settings.google_client_id or file_config.get("client_id", "")
+    client_secret = settings.google_client_secret or file_config.get("client_secret", "")
+    auth_uri = file_config.get("auth_uri") or GOOGLE_AUTH_URI
+    token_uri = file_config.get("token_uri") or GOOGLE_TOKEN_URI
+
     return {
         "web": {
-            "client_id": settings.google_client_id,
-            "client_secret": settings.google_client_secret,
-            "auth_uri": GOOGLE_AUTH_URI,
-            "token_uri": GOOGLE_TOKEN_URI,
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "auth_uri": auth_uri,
+            "token_uri": token_uri,
             "redirect_uris": [
                 settings.google_redirect_uri,
                 "http://127.0.0.1:8000/api/integrations/google/callback",
