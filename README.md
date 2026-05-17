@@ -1,406 +1,132 @@
 # Kika Orbit
 
-Plataforma web tipo SaaS para centros de estudiantes y coordinación universitaria.
+![Kika Orbit orbital banner](docs/brand/kika-orbit-readme-banner.svg)
 
-La idea central es convertir un calendario académico anual en un sistema vivo que permita cargar actividades de la universidad, sincronizar eventos institucionales y coordinar el uso de espacios sin mezclar información personal con información oficial.
+**Calendario vivo para centros de estudiantes, coordinación universitaria y reservas de espacios.**
 
-## Nombre y marca
+Kika Orbit convierte un calendario académico y administrativo en una plataforma web/PWA para crear eventos, coordinar centros, evitar choques de espacios y sincronizar el calendario oficial del centro con Google Calendar.
 
-`Kika Orbit` es el nombre de trabajo del proyecto.
+> Proyecto en desarrollo activo. La carpeta local todavía se llama `CastelRoomKeeper` porque nació desde el calendario de Castel, pero el producto público es **Kika Orbit**.
 
-La identidad visual y el nombre público deben poder cambiarse sin rehacer la base técnica. La recomendación es centralizar eso en una sola capa de configuración cuando empecemos el desarrollo real:
+## Estado Actual
 
-- nombre público
-- nombre corto
-- logo
-- colores
-- dominio
-- textos visibles
+| Area | Estado |
+| --- | --- |
+| Backend FastAPI | Base funcional |
+| SQLite local | Funcional para desarrollo |
+| PostgreSQL | Preparado por arquitectura y migraciones |
+| PWA | Shell inicial, manifest, service worker y offline |
+| Auth interna | RUT + clave + roles base |
+| Google Calendar | OAuth iniciado como integración de calendario oficial |
+| Castel legacy | Preservado como referencia en `legacy/castel-calendar` |
+| Tests | `pytest` + `ruff` |
 
-Así, si Kika quiere cambiar la marca, venderlo a otra universidad o sacar una edición nueva, solo se ajusta la capa de branding y no todo el proyecto.
+## Identidad Del Producto
 
-## Objetivo
+El nombre de trabajo es **Kika Orbit**: una marca orbital, universitaria y fácil de adaptar. La identidad debe quedar configurable para que el producto pueda cambiar de nombre, logo, colores o dominio sin rehacer la base técnica.
 
-Construir una web privada y multiusuario donde cada centro de estudiantes o unidad institucional pueda:
+Elementos actuales de marca:
 
-- ver su calendario
-- crear y editar eventos autorizados
-- sincronizar actividades con Google Calendar
-- coordinar reservas de espacios como auditorios o salas
-- evitar que entren eventos personales de cuentas ajenas
-- compartir una vista común con otros centros y con la universidad
+- Paleta visual: naranja, morado, dorado y acentos espaciales.
+- Logo OAuth: [`docs/brand/kika-orbit-oauth-logo.svg`](docs/brand/kika-orbit-oauth-logo.svg).
+- Banner README: [`docs/brand/kika-orbit-readme-banner.svg`](docs/brand/kika-orbit-readme-banner.svg).
+- UI PWA: [`backend/kika_orbit/web/static`](backend/kika_orbit/web/static).
 
-El foco no es “una app más”, sino una herramienta de coordinación real para la universidad.
+## Qué Problema Resuelve
 
-## Decisión técnica recomendada
+Los centros y unidades universitarias suelen coordinar actividades con calendarios, chats y correos mezclados. Eso provoca:
 
-### Recomendación principal
+- choques de salas o auditorios;
+- eventos duplicados o invisibles para otros centros;
+- datos personales mezclados con información oficial;
+- dificultad para saber quién creó, cambió o aprobó una actividad;
+- poca trazabilidad para coordinación universitaria.
 
-**Backend:** Python  
-**Frontend:** web responsive con TypeScript/React o server-rendered templates según la primera fase  
-**Base de datos:** PostgreSQL  
-**Tareas en segundo plano:** workers Python + cron/celery/rq  
-**Integración externa:** Google Calendar API vía OAuth 2.0
+Kika Orbit busca ser el centro de mando para resolver eso con calendarios por centro, vista general, roles, auditoría y sincronización con Google Calendar.
 
-### Por qué Python
+## Decisión Clave Sobre Google
 
-- es fuerte para leer y transformar documentos Word, PDF y Excel
-- tiene buena compatibilidad con Google APIs
-- facilita tareas de automatización y procesamiento de calendarios
-- permite crecer a una arquitectura SaaS limpia sin inventar demasiadas piezas
+Para el piloto de Psicología se usará **una sola cuenta Google del centro**:
 
-### Por qué no partir con una ensalada de lenguajes
+```text
+cc.ee.psicologia1@gmail.com
+```
 
-Se puede mezclar tecnología, pero solo donde haya una razón clara.  
-Para este proyecto, empezar con PHP + Python + Java + algo más al mismo tiempo solo agregaría:
+Esa cuenta se conecta por OAuth y representa el calendario oficial del Centro de Estudiantes de Psicología.
 
-- más complejidad
-- más despliegues
-- más puntos de falla
-- más tiempo de mantenimiento
+Las integrantes del centro **no entran con Google** ni comparten la clave de esa cuenta. Cada administradora entra con:
 
-La recomendación es:
+- RUT autorizado;
+- clave propia de Kika Orbit;
+- rol interno;
+- auditoría de acciones.
 
-- una sola base principal
-- una sola base de datos
-- una sola API
-- una sola forma de autenticación
+Google Calendar queda como integración de calendario compartido, no como identidad personal de cada usuaria.
 
-## Stack propuesto por fases
+## Arquitectura
 
-### Fase 1: MVP web
+```mermaid
+flowchart LR
+    Admin["Administradora<br/>RUT + clave"] --> Web["Kika Orbit PWA"]
+    Web --> API["FastAPI"]
+    API --> DB[("SQLite local<br/>PostgreSQL objetivo")]
+    API --> Audit["Auditoría"]
+    API --> Holidays["Feriados Chile"]
+    API --> OAuth["Google OAuth 2.0"]
+    OAuth --> Calendar["Google Calendar<br/>cc.ee.psicologia1@gmail.com"]
+    Legacy["Castel Calendar legacy"] -.referencia.-> API
+```
 
-- Web responsive
-- Login institucional por correo
-- Calendario por centro
-- Carga manual de eventos
-- Roles básicos
-- Base de datos PostgreSQL
-- Vista mensual y agenda
+## Stack
 
-### Fase 2: Importación de calendario académico
+- **Backend:** Python + FastAPI
+- **ORM:** SQLAlchemy
+- **Migraciones:** Alembic
+- **DB local:** SQLite
+- **DB objetivo:** PostgreSQL
+- **Frontend actual:** HTML/CSS/JS servido por FastAPI
+- **Formato objetivo:** Web/PWA
+- **Integración principal:** Google Calendar API con OAuth 2.0
+- **Calidad:** Ruff + Pytest
 
-- Subir documento Word del calendario anual
-- Extraer fechas y eventos
-- Detectar:
-  - inicio de semestre
-  - fin de semestre
-  - vacaciones
-  - feriados
-  - semanas de cátedras
-  - semanas especiales
-  - eventos institucionales
-- Permitir revisión antes de publicar
+## Estructura Del Repo
 
-### Fase 3: Integración con Google Calendar
+```text
+backend/kika_orbit/                 Producto principal FastAPI
+backend/kika_orbit/api/             Endpoints REST
+backend/kika_orbit/domain/          Reglas de negocio: RUT, feriados, roster admin
+backend/kika_orbit/integrations/    OAuth e integraciones externas
+backend/kika_orbit/web/static/      PWA y UI inicial
+data/                               Ejemplos públicos, sin datos reales
+docs/                               Decisiones de producto, seguridad y arquitectura
+docs/brand/                         Assets de marca
+legacy/castel-calendar/             Calendario Castel preservado como referencia
+migrations/                         Migraciones Alembic
+tests/                              Pruebas automatizadas
+```
 
-- Sincronización con calendarios conectados por OAuth
-- Importación y exportación de eventos
-- OAuth 2.0
-- Asociación por centro de estudiantes o unidad
-- Evitar mezclar calendarios personales no seleccionados
+## Quickstart Local
 
-Para partir no se requiere dominio institucional ni Google Workspace. La primera integración usa una cuenta Google oficial del centro, no el Google personal de cada administradora. En el piloto de Psicologia esa cuenta es `cc.ee.psicologia1@gmail.com`; cada integrante entra a Kika Orbit con RUT, clave y rol interno. La estrategia completa está en [`docs/estrategia-google-sin-dominio.md`](docs/estrategia-google-sin-dominio.md).
-
-### Fase 4: Multi-centro / multiunidad
-
-- Psicología
-- Veterinaria
-- Kinesiología
-- Enfermería
-- DAE u otros organismos
-
-Cada uno con su propio espacio lógico, colores, permisos y calendario.
-
-### Fase 5: SaaS completo
-
-- Panel administrador central
-- Gestión de organizaciones
-- Gestión de usuarios
-- Estadísticas
-- Historial
-- Auditoría
-- Plantillas de permisos
-- Reserva y coordinación de espacios
-
-## Requerimientos funcionales del proyecto
-
-### 1. Calendario anual dinámico
-
-El sistema debe permitir que el calendario académico cambie de año sin rehacer toda la aplicación.
-
-Requisitos:
-
-- cargar calendario anual nuevo
-- reutilizar estructura base
-- actualizar fechas automáticamente
-- mantener la información histórica
-
-### 2. Carga desde documento Word
-
-El documento base de la universidad será el punto de entrada principal.
-
-Debe poder:
-
-- subir Word como fuente inicial
-- identificar fechas y eventos
-- clasificar los elementos detectados
-- revisar y confirmar antes de publicar
-
-### 3. Aislamiento institucional
-
-No se deben mezclar datos personales con los institucionales.
-
-El sistema debe:
-
-- limitar acceso a cuentas autorizadas
-- usar correos institucionales o de centro
-- impedir que eventos personales aparezcan en el calendario común
-- separar eventos privados de eventos oficiales
-
-### 4. Calendarios por centro
-
-Cada centro debe tener su propio calendario lógico.
-
-Ejemplos:
-
-- Psicología
-- Veterinaria
-- Kinesiología
-- Enfermería
-
-Cada calendario debe poder:
-
-- verse solo por autorizados
-- compartir eventos públicos de coordinación
-- ocultar detalles sensibles si corresponde
-- tener color propio
-
-### 5. Vista común para coordinación
-
-Debe existir una vista central donde se vea:
-
-- qué centro tiene evento
-- qué espacio está ocupado
-- qué día se usa un auditorio
-- qué evento choca con otro
-
-Esto sirve para que centros y universidad coordinen mejor sus actividades.
-
-### 6. Reserva de espacios
-
-El proyecto no es solo calendario. También es coordinación de espacios.
-
-Debe incluir:
-
-- reservas de auditorio
-- reservas de salas
-- bloques horarios
-- disponibilidad visual
-- advertencia de choques
-
-### 7. Permisos y roles
-
-Roles mínimos:
-
-- superadmin
-- admin institucional
-- coordinación
-- centro de estudiantes
-- solo lectura
-
-Cada rol debe tener límites claros para:
-
-- crear eventos
-- editar eventos
-- aprobar cambios
-- ver todo
-- exportar
-- administrar usuarios
-
-### 8. Google Calendar
-
-La integración con Google Calendar es parte del proyecto.
-
-Debe contemplar:
-
-- OAuth 2.0
-- credenciales seguras
-- sincronización de eventos
-- asociación con calendarios institucionales
-- exportación/importación
-
-### 9. Notificaciones
-
-El sistema debe poder avisar por:
-
-- correo
-- notificación web
-- recordatorios internos
-
-La gestión de correos hereda la idea de Castel (plantillas y avisos), pero no el acoplamiento al webmail del hosting. En este proyecto la prioridad es:
-
-- primero invitaciones por Google Calendar
-- después Gmail API para avisos puntuales
-- SMTP solo si aparece un dominio o proveedor propio
-
-Más adelante podría extenderse a otros canales, pero no es requisito base.
-
-### 10. Historial y auditoría
-
-Debe quedar registro de:
-
-- quién creó el evento
-- quién lo editó
-- quién aprobó el cambio
-- cuándo se publicó
-- qué cambió exactamente
-
-### 11. Estadísticas
-
-Deseable para fases posteriores:
-
-- uso de espacios
-- cantidad de eventos por centro
-- eventos por mes
-- espacios más ocupados
-
-## Requerimientos no funcionales
-
-- Debe verse bien en celular y escritorio
-- Debe cargar rápido
-- Debe funcionar con datos reales y con datos de prueba
-- Debe tener una arquitectura fácil de mantener
-- Debe ser segura con credenciales y tokens
-- Debe ser desplegable de forma simple mientras se desarrolla
-
-## Qué no debe hacer el MVP
-
-- No debe mezclar eventos personales con institucionales
-- No debe depender de una app nativa desde el inicio
-- No debe obligar a instalar nada para usarlo
-- No debe requerir varios lenguajes sin necesidad
-- No debe nacer con demasiadas integraciones al mismo tiempo
-
-## Ruta de desarrollo recomendada
-
-### Paso 1
-
-Diseñar la base funcional:
-
-- autenticación
-- base de datos
-- estructura de calendarios
-- roles
-- vista web
-
-### Paso 2
-
-Implementar el calendario anual dinámico:
-
-- importación manual
-- interpretación de fechas
-- publicación del calendario
-
-### Paso 3
-
-Agregar la coordinación de centros:
-
-- calendario por centro
-- vista común
-- reservas de espacios
-
-### Paso 4
-
-Integrar Google Calendar:
-
-- login OAuth
-- sincronización
-- publicación de eventos
-
-### Paso 5
-
-Escalar a SaaS:
-
-- organizaciones múltiples
-- métricas
-- auditoría completa
-- administración central
-
-## Diseño sugerido del producto
-
-- Web moderna
-- Responsive
-- Colores por centro
-- Interfaz clara para celular
-- Panel de administración separado
-- Calendario principal muy visible
-
-## Datos y base
-
-La base de datos debe ser SQL desde el inicio.
-
-Recomendación:
-
-- PostgreSQL
-- migraciones versionadas
-- tablas para usuarios, centros, calendarios, eventos, permisos, auditoría y sincronización
-
-## Desarrollo local
-
-El backend inicial está en `backend/kika_orbit` y usa FastAPI + SQLAlchemy.
-La primera vista web vive en `backend/kika_orbit/web/static` y se sirve desde el mismo proceso para mantener el desarrollo simple.
-
-Estructura actual del repo:
-
-- `backend/kika_orbit`: producto principal Kika Orbit en FastAPI.
-- `backend/kika_orbit/web/static`: PWA y UI inicial.
-- `data`: ejemplos publicos propios de Kika, como `admin_roster.example.json`.
-- `docs`: decisiones de producto, seguridad, Google, RUT y requerimientos.
-- `legacy/castel-calendar`: calendario Castel preservado como base de referencia, no runtime principal.
-- `migrations`: migraciones Alembic para preparar PostgreSQL y despliegue serio.
-- `tests`: pruebas de API, dominio y seguridad base.
-
-Instalar dependencias:
+Desde la raíz del repo:
 
 ```powershell
 uv sync
-```
-
-Levantar API local:
-
-```powershell
 uv run uvicorn kika_orbit.main:app --app-dir backend --reload
 ```
 
-Verificar salud:
-
-```powershell
-Invoke-RestMethod http://127.0.0.1:8000/api/health
-```
-
-Abrir la interfaz:
+Abrir:
 
 ```text
 http://127.0.0.1:8000/
 ```
 
-Rutas web disponibles en este corte:
+Healthcheck:
 
-- `/`: login demo y entrada al tablero
-- `/login`: alias para el login
-- `/app`: alias preparado para el tablero
-- `/manifest.webmanifest`: manifiesto PWA
-- `/sw.js`: service worker base
-- `/offline`: pantalla offline
+```powershell
+Invoke-RestMethod http://127.0.0.1:8000/api/health
+```
 
-Endpoints de autenticacion disponibles en este corte:
-
-- `POST /api/auth/activate`: activa un administrador desde `.local/admin_roster.json`.
-- `POST /api/auth/login`: valida RUT + clave y registra auditoria.
-- `POST /api/auth/password-reset/request`: inicia recuperacion con respuesta neutral.
-
-Ejecutar tests y lint:
+Tests y lint:
 
 ```powershell
 uv run ruff check .
@@ -414,48 +140,152 @@ uv run alembic upgrade head
 uv run alembic revision --autogenerate -m "describe change"
 ```
 
-Por defecto se usa SQLite en `.local/kika_orbit.db` para desarrollo rapido. La base objetivo del producto sigue siendo PostgreSQL; se configura cambiando `DATABASE_URL` en `.env`.
+## Variables De Entorno
 
-## Metodologia de trabajo
+Crear un `.env` local a partir de `.env.example`.
 
-- cambios pequeños y verificables
-- tests antes de subir
-- SQL como fuente real de datos
-- secretos fuera de git
-- marca configurable desde una capa central
-- integraciones externas por fases, no todas al mismo tiempo
+```env
+APP_NAME=Kika Orbit
+PUBLIC_BRAND_NAME=Kika Orbit
+ENVIRONMENT=local
+DATABASE_URL=sqlite:///./.local/kika_orbit.db
+GOOGLE_REDIRECT_URI=http://localhost:8000/api/integrations/google/callback
+GOOGLE_CALENDAR_SCOPES=https://www.googleapis.com/auth/calendar.events
+GOOGLE_CENTER_ACCOUNT_EMAIL=cc.ee.psicologia1@gmail.com
+GOOGLE_CALENDAR_ID=primary
+ADMIN_ROSTER_PATH=.local/admin_roster.json
+ADMIN_IDENTITY_PEPPER=change-this-local-secret
+```
 
-## Integraciones que podrían necesitarse
+No subir:
 
-- Google Calendar API
-- Gmail API para avisos opcionales
-- SMTP solo como proveedor alternativo futuro
-- almacenamiento de archivos para documentos Word
-- tareas programadas
+- `.env`
+- `.local/`
+- `client_secret_*.json`
+- `google_token.json`
+- roster real de administradoras
+- credenciales de Cloudflare o VPS
 
-## Identidad de administradores
+## Google Cloud Checklist
 
-El acceso administrativo se modela por RUT unico + correo asociado + rol. El RUT completo no debe subirse al repo publico; para desarrollo local va en `.local/admin_roster.json`, mientras que el ejemplo publico esta en `data/admin_roster.example.json`. Mas detalle en [`docs/identidad-admin-rut.md`](docs/identidad-admin-rut.md).
+En Google Cloud, para el piloto, hay que dejar listo esto:
 
-## Base Castel preservada
+1. Seleccionar el proyecto correcto de Kika Orbit.
+2. Activar **Google Calendar API**.
+3. Configurar la pantalla de consentimiento OAuth.
+4. Crear o editar un cliente OAuth tipo **Web application**.
+5. Agregar redirect URI local:
 
-El calendario de Castel se conserva en [`legacy/castel-calendar`](legacy/castel-calendar) porque aporta logica util para calendario mensual, reservas, avisos y bloqueos. La regla de trabajo es migrar ideas hacia Python/FastAPI con SQL y tests; no mezclar el PHP heredado como runtime principal de Kika Orbit salvo instruccion explicita.
+```text
+http://localhost:8000/api/integrations/google/callback
+```
 
-Los requerimientos reales resumidos desde el texto de Kika estan en [`docs/requerimientos-kika.md`](docs/requerimientos-kika.md).
+6. Si se prueba con Cloudflare Tunnel, agregar también:
 
-## Qué podrías pedirme después
+```text
+https://kika.drakescraft.cl/api/integrations/google/callback
+```
 
-- Diseñar la base de datos
-- Crear el árbol de carpetas del proyecto
-- Empezar el backend
-- Definir el flujo de importación de Word
-- Hacer la primera pantalla web
-- Preparar la integración con Google Calendar
+7. Agregar JavaScript origin público si se usa el dominio:
 
-## Resumen de decisión
+```text
+https://kika.drakescraft.cl
+```
 
-La mejor ruta para Kika es:
+8. Mantener la app en **Testing** mientras desarrollamos.
+9. Agregar como test user la cuenta que conectará el calendario:
 
-**web SaaS + Python + PostgreSQL + integración con Google Calendar + PWA progresiva**
+```text
+cc.ee.psicologia1@gmail.com
+```
 
-Eso deja el proyecto ordenado, escalable y con menos riesgo que partir con una mezcla de tecnologías sin necesidad.
+10. Descargar el JSON OAuth solo en local y guardarlo como:
+
+```text
+.local/google_oauth_client_secret.json
+```
+
+11. Copiar `client_id` y `client_secret` al `.env` local.
+12. Probar el flujo desde:
+
+```text
+http://127.0.0.1:8000/api/integrations/google/login
+```
+
+## Endpoints Principales
+
+```text
+GET  /api/health
+GET  /api/organizations
+POST /api/organizations
+GET  /api/centers
+POST /api/centers
+GET  /api/events
+POST /api/events
+GET  /api/holidays?year=2026
+POST /api/auth/activate
+POST /api/auth/login
+POST /api/auth/password-reset/request
+GET  /api/integrations/google/status
+GET  /api/integrations/google/login
+GET  /api/integrations/google/callback
+```
+
+## Rutas Web
+
+```text
+/
+/login
+/app
+/manifest.webmanifest
+/sw.js
+/offline
+```
+
+## Roadmap
+
+### Ahora
+
+- Auth interna por RUT + clave.
+- Calendario mensual más real.
+- Crear/editar eventos desde modal.
+- Conexión Google Calendar para cuenta oficial del centro.
+- Persistencia segura de conexión por centro.
+
+### Siguiente
+
+- Sincronizar eventos hacia Google Calendar.
+- Manejar refresh token y desconexión.
+- Filtros por centro, espacio y tipo de evento.
+- Gestión de administradoras.
+- Gestión de espacios y bloqueos.
+
+### Después
+
+- PostgreSQL en VPS.
+- Docker + Caddy.
+- Backups diarios.
+- Importación Word/PDF/Excel.
+- Auditoría completa.
+- Multi-centro y multi-organización.
+
+## Castel Como Base
+
+El calendario Castel se conserva en [`legacy/castel-calendar`](legacy/castel-calendar) porque aporta ideas útiles de calendario mensual, reservas, avisos y bloqueos.
+
+La regla de trabajo es clara:
+
+- migrar ideas útiles hacia Python/FastAPI;
+- mantener SQL y tests como base nueva;
+- no convertir el PHP heredado en runtime principal de Kika Orbit salvo instrucción explícita.
+
+## Documentación
+
+- [`docs/requerimientos-kika.md`](docs/requerimientos-kika.md): resumen de lo pedido por Kika.
+- [`docs/estrategia-google-sin-dominio.md`](docs/estrategia-google-sin-dominio.md): estrategia Google sin Workspace.
+- [`docs/identidad-admin-rut.md`](docs/identidad-admin-rut.md): identidad de administradoras por RUT.
+- [`docs/diseno-calendario-multiusuario-y-bloqueos.md`](docs/diseno-calendario-multiusuario-y-bloqueos.md): diseño de calendario, espacios y bloqueos.
+
+## Licencia
+
+Ver [`LICENSE`](LICENSE).
