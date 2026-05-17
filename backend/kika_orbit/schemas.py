@@ -68,3 +68,30 @@ class EventRead(BaseModel):
     status: str
     starts_at: datetime
     ends_at: datetime
+
+
+class AuthActivateRequest(BaseModel):
+    rut: str = Field(min_length=7, max_length=20)
+    password: str = Field(min_length=8, max_length=128)
+
+
+class AuthLoginRequest(BaseModel):
+    rut: str = Field(min_length=7, max_length=20)
+    password: str = Field(min_length=1, max_length=128)
+
+
+class AuthSessionRead(BaseModel):
+    token: str
+    user_id: str
+    display_name: str
+    email: str
+    role: str
+    rut_masked: str | None
+
+
+class PasswordResetRequest(BaseModel):
+    rut: str = Field(min_length=7, max_length=20)
+
+
+class PasswordResetResponse(BaseModel):
+    message: str

@@ -45,16 +45,18 @@
             <p>Usaremos cuentas institucionales por centro. Por ahora, este login simula el flujo.</p>
           </div>
           <label>
-            Correo institucional
-            <input value="centro.psicologia@demo.edu" type="email" autocomplete="email" />
+            RUT administrador
+            <input name="rut" placeholder="12.345.678-9" autocomplete="username" />
           </label>
           <label>
             Clave
-            <input value="orbit-demo" type="password" autocomplete="current-password" />
+            <input name="password" placeholder="Tu clave de Kika Orbit" type="password" autocomplete="current-password" />
           </label>
           <button class="primary-action" type="submit">Abrir calendario</button>
           <button class="ghost-action" type="button" id="demo-button">Usar modo invitado</button>
-          <p class="microcopy">Despues conectamos auth real, roles y dominios permitidos por universidad.</p>
+          <p class="microcopy" id="login-status">
+            El acceso real usa RUT autorizado y clave propia. El modo invitado queda para mostrar la maqueta.
+          </p>
         </form>
       </section>
 

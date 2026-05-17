@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from kika_orbit.api import centers, events, health, holidays, integrations, organizations
+from kika_orbit.api import auth, centers, events, health, holidays, integrations, organizations
 from kika_orbit.database import init_database
 from kika_orbit.settings import get_settings
 from kika_orbit.web import STATIC_DIR
@@ -32,6 +32,7 @@ def create_app() -> FastAPI:
 
     app.mount("/assets", StaticFiles(directory=STATIC_DIR), name="assets")
     app.include_router(web_router)
+    app.include_router(auth.router)
     app.include_router(health.router)
     app.include_router(organizations.router)
     app.include_router(centers.router)

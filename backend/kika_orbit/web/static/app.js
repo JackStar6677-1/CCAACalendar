@@ -1,6 +1,7 @@
 const shell = document.querySelector(".shell");
 const loginForm = document.querySelector("#login-form");
 const demoButton = document.querySelector("#demo-button");
+const loginStatus = document.querySelector("#login-status");
 const soundToggle = document.querySelector("#sound-toggle");
 const calendarGrid = document.querySelector("#calendar-grid");
 const agendaList = document.querySelector("#agenda-list");
@@ -16,6 +17,7 @@ let soundEnabled = false;
 let audioContext;
 let organizationId;
 let deferredInstallPrompt;
+let authSession;
 
 const fallbackEvents = [
   {
@@ -77,6 +79,11 @@ function openApp() {
   shell.dataset.screen = "app";
   chirp("gold");
   render();
+}
+
+function setLoginStatus(message, tone = "neutral") {
+  loginStatus.textContent = message;
+  loginStatus.dataset.tone = tone;
 }
 
 function normalizeCategory(category) {
@@ -320,9 +327,36 @@ async function createEventFromForm(formData) {
   events = [localEvent, ...events];
 }
 
-loginForm.addEventListener("submit", (event) => {
+loginForm.addEventListener("submit", async (event) => {
   event.preventDefault();
-  openApp();
+  const formData = new FormData(loginForm);
+  const rut = String(formData.get("rut") || "").trim();
+  const password = String(formData.get("password") || "");
+
+  if (!rut || !password) {
+    setLoginStatus("Ingresa RUT y clave, o usa modo invitado para revisar la maqueta.", "warning");
+    return;
+  }
+
+  setLoginStatus("Verificando acceso orbital...", "neutral");
+  try {
+    const response = await fetch("/api/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ rut, password }),
+    });
+
+    if (!response.ok) {
+      setLoginStatus("No pudimos validar esas credenciales. Si aun no activaste acceso, queda pendiente con el roster local.", "warning");
+      return;
+    }
+
+    authSession = await response.json();
+    setLoginStatus(`Sesion iniciada como ${authSession.display_name}.`, "success");
+    openApp();
+  } catch {
+    setLoginStatus("No se pudo contactar la API local. Puedes usar modo invitado mientras revisamos.", "warning");
+  }
 });
 
 demoButton.addEventListener("click", openApp);

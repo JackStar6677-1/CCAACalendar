@@ -50,6 +50,31 @@ No conviene mostrar si un RUT existe o no. El mensaje publico debe ser neutral:
 Si los datos existen y estan activos, enviaremos instrucciones al correo asociado.
 ```
 
+## Corte implementado en la API
+
+El primer bloque real de autenticacion vive en:
+
+```text
+POST /api/auth/activate
+POST /api/auth/login
+POST /api/auth/password-reset/request
+```
+
+Flujo actual:
+
+1. El RUT se normaliza y se compara por hash con `.local/admin_roster.json`.
+2. Si el roster local marca al admin como `active` y el RUT valida, `/activate` crea o completa el usuario.
+3. La clave se guarda con PBKDF2-SHA256 y sal aleatoria, no en claro.
+4. `/login` valida RUT + clave y registra auditoria `auth.login`.
+5. `/password-reset/request` guarda solo el hash de un token temporal y responde siempre con mensaje neutral.
+
+Pendiente deliberado:
+
+- Enviar el token de recuperacion por correo real.
+- Persistir sesiones/tokens de acceso con expiracion y revocacion.
+- Crear pantalla privada de activacion para administradores invitados.
+- Cifrar tokens OAuth de Google antes de guardar integraciones de produccion.
+
 ## Google
 
 Si usamos login Google, el RUT sigue sirviendo como identificador interno y control de roles. El correo Google conectado debe coincidir con el correo asociado al RUT o quedar aprobado manualmente por un admin.

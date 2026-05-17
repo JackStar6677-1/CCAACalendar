@@ -139,6 +139,14 @@ button {
   color: var(--muted);
 }
 
+.microcopy[data-tone="success"] {
+  color: #ffe6a3;
+}
+
+.microcopy[data-tone="warning"] {
+  color: #ffb7a6;
+}
+
 .eyebrow {
   color: var(--gold);
   font-size: 0.76rem;

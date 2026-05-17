@@ -384,6 +384,12 @@ Rutas web disponibles en este corte:
 - `/sw.js`: service worker base
 - `/offline`: pantalla offline
 
+Endpoints de autenticacion disponibles en este corte:
+
+- `POST /api/auth/activate`: activa un administrador desde `.local/admin_roster.json`.
+- `POST /api/auth/login`: valida RUT + clave y registra auditoria.
+- `POST /api/auth/password-reset/request`: inicia recuperacion con respuesta neutral.
+
 Ejecutar tests y lint:
 
 ```powershell

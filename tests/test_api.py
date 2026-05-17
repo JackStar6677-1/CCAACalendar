@@ -1,7 +1,11 @@
+import json
+import uuid
+
 from fastapi.testclient import TestClient
 from kika_orbit.domain.admin_roster import load_admin_roster
 from kika_orbit.domain.rut import is_valid_rut, mask_rut, normalize_rut
 from kika_orbit.main import app
+from kika_orbit.settings import Settings, get_settings
 
 
 def test_healthcheck() -> None:
@@ -112,3 +116,69 @@ def test_admin_roster_flags_invalid_ruts(tmp_path) -> None:
     assert entries[0].can_login
     assert entries[1].status == "needs_rut_confirmation"
     assert not entries[1].can_login
+
+
+def test_admin_can_activate_and_login_with_rut(tmp_path) -> None:
+    test_email = f"directiva-{uuid.uuid4()}@example.com"
+    roster = tmp_path / "admins.json"
+    roster.write_text(
+        json.dumps(
+            {
+                "admins": [
+                    {
+                        "rut": "21.452.686-7",
+                        "email": test_email,
+                        "display_name": "Directiva Demo",
+                        "role": "admin",
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    pepper = f"test-pepper-{tmp_path.name}-{uuid.uuid4()}"
+    app.dependency_overrides[get_settings] = lambda: Settings(
+        admin_roster_path=str(roster),
+        admin_identity_pepper=pepper,
+    )
+
+    try:
+        with TestClient(app) as client:
+            activate_response = client.post(
+                "/api/auth/activate",
+                json={"rut": "21.452.686-7", "password": "orbit-demo-seguro"},
+            )
+            login_response = client.post(
+                "/api/auth/login",
+                json={"rut": "21452686-7", "password": "orbit-demo-seguro"},
+            )
+
+        assert activate_response.status_code == 201
+        assert activate_response.json()["rut_masked"] == "***686-7"
+        assert activate_response.json()["role"] == "admin"
+        assert login_response.status_code == 200
+        assert login_response.json()["email"] == test_email
+        assert login_response.json()["token"]
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_password_reset_request_uses_neutral_message(tmp_path) -> None:
+    roster = tmp_path / "admins.json"
+    roster.write_text('{"admins": []}', encoding="utf-8")
+    app.dependency_overrides[get_settings] = lambda: Settings(
+        admin_roster_path=str(roster),
+        admin_identity_pepper=f"test-pepper-{tmp_path.name}",
+    )
+
+    try:
+        with TestClient(app) as client:
+            response = client.post(
+                "/api/auth/password-reset/request",
+                json={"rut": "11.111.111-1"},
+            )
+
+        assert response.status_code == 200
+        assert response.json()["message"].startswith("Si los datos existen")
+    finally:
+        app.dependency_overrides.clear()
