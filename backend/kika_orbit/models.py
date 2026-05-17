@@ -51,6 +51,9 @@ class Center(TimestampMixin, Base):
 
     organization: Mapped[Organization] = relationship(back_populates="centers")
     events: Mapped[list["Event"]] = relationship(back_populates="center")
+    google_connections: Mapped[list["GoogleCalendarConnection"]] = relationship(
+        back_populates="center"
+    )
 
     __table_args__ = (Index("ix_centers_org_slug", "organization_id", "slug", unique=True),)
 
@@ -103,6 +106,27 @@ class AcademicCalendar(TimestampMixin, Base):
     extracted_payload: Mapped[dict] = mapped_column(JSON, default=dict)
 
     __table_args__ = (Index("ix_academic_calendars_org_year", "organization_id", "year"),)
+
+
+class GoogleCalendarConnection(TimestampMixin, Base):
+    __tablename__ = "google_calendar_connections"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    organization_id: Mapped[str] = mapped_column(ForeignKey("organizations.id"), nullable=False)
+    center_id: Mapped[str] = mapped_column(ForeignKey("centers.id"), nullable=False)
+    account_email: Mapped[str] = mapped_column(String(254), nullable=False)
+    calendar_id: Mapped[str] = mapped_column(String(260), default="primary", nullable=False)
+    status: Mapped[str] = mapped_column(String(40), default="pending", nullable=False)
+    scopes: Mapped[dict] = mapped_column(JSON, default=dict)
+    token_reference: Mapped[str | None] = mapped_column(String(260))
+    last_synced_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    center: Mapped[Center] = relationship(back_populates="google_connections")
+
+    __table_args__ = (
+        Index("ix_google_connections_center_provider", "center_id", "account_email"),
+        Index("ix_google_connections_org_status", "organization_id", "status"),
+    )
 
 
 class Event(TimestampMixin, Base):

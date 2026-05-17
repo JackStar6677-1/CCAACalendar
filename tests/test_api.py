@@ -24,6 +24,7 @@ def test_web_home_loads() -> None:
 
     assert response.status_code == 200
     assert "Kika Orbit" in response.text
+    assert "cc.ee.psicologia1@gmail.com" in response.text
     assert styles_response.status_code == 200
     assert manifest_response.status_code == 200
 
@@ -76,6 +77,10 @@ def test_google_integration_status_shape() -> None:
     assert response.status_code == 200
     payload = response.json()
     assert payload["provider"] == "google"
+    assert payload["mode"] == "center_calendar"
+    assert payload["account_role"] == "official_center_calendar"
+    assert payload["account_email"] == "cc.ee.psicologia1@gmail.com"
+    assert payload["internal_auth"] == "rut_password"
     assert "configured" in payload
     assert payload["calendar_scope"] == "https://www.googleapis.com/auth/calendar.events"
 

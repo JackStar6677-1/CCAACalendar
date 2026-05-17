@@ -42,7 +42,10 @@
           <div>
             <span class="eyebrow">Acceso demo</span>
             <h2>Entrar al panel</h2>
-            <p>Usaremos cuentas institucionales por centro. Por ahora, este login simula el flujo.</p>
+            <p>
+              Cada administradora entra con su RUT y clave propia. Google solo conecta el calendario
+              compartido del centro.
+            </p>
           </div>
           <label>
             RUT administrador
@@ -146,16 +149,17 @@
               </div>
               <div class="agenda-list" id="agenda-list"></div>
               <div class="google-panel">
-                <span class="eyebrow">Correos sin dominio propio</span>
-                <h4>Google personal conectado</h4>
+                <span class="eyebrow">Cuenta oficial del centro</span>
+                <h4>Calendario Psicologia conectado</h4>
                 <p>
-                  Kika puede autorizar su Gmail/Calendar personal por OAuth. El sistema crea eventos
-                  e invita asistentes desde esa cuenta; no necesitamos Google Workspace para partir.
+                  La integracion usa una sola cuenta compartida para el Centro de Estudiantes de
+                  Psicologia: cc.ee.psicologia1@gmail.com. Las chicas no comparten clave Google:
+                  cada una opera con su acceso interno de Kika Orbit.
                 </p>
-                <a class="google-link" href="/api/integrations/google/login">Conectar Google Calendar</a>
+                <a class="google-link" href="/api/integrations/google/login">Conectar calendario oficial</a>
                 <ul>
-                  <li>Fase 1: invitaciones por Google Calendar.</li>
-                  <li>Fase 2: Gmail API solo para avisos necesarios.</li>
+                  <li>Fase 1: eventos e invitaciones desde el calendario del centro.</li>
+                  <li>Fase 2: permisos internos por RUT, rol y auditoria.</li>
                   <li>Fase 3: si aparece dominio institucional, cambiamos el proveedor sin rehacer la app.</li>
                 </ul>
               </div>

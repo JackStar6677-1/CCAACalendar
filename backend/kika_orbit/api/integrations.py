@@ -22,12 +22,21 @@ def google_status(settings: SettingsDep) -> dict[str, object]:
     token = read_json(settings.google_token_path)
     return {
         "provider": "google",
+        "mode": "center_calendar",
+        "account_role": "official_center_calendar",
+        "account_email": settings.google_center_account_email,
+        "calendar_id": settings.google_calendar_id,
         "configured": is_google_oauth_configured(settings),
         "redirect_uri": settings.google_redirect_uri,
         "calendar_scope": settings.google_calendar_scopes,
         "gmail_scope": settings.google_gmail_scopes,
         "token_present": bool(token),
         "token_scopes": token.get("scopes", []),
+        "internal_auth": "rut_password",
+        "notes": [
+            "Google OAuth conecta solo el calendario oficial del centro.",
+            "Cada administradora entra con su cuenta interna de Kika Orbit.",
+        ],
     }
 
 
@@ -51,6 +60,9 @@ def google_login(
         {
             "state": state,
             "include_gmail": include_gmail,
+            "mode": "center_calendar",
+            "account_email": settings.google_center_account_email,
+            "calendar_id": settings.google_calendar_id,
             "scopes": oauth_scopes(settings, include_gmail),
         },
     )
@@ -80,6 +92,9 @@ def google_callback(request: Request, settings: SettingsDep) -> HTMLResponse:
             "client_id": credentials.client_id,
             "client_secret": credentials.client_secret,
             "scopes": list(credentials.scopes or []),
+            "mode": "center_calendar",
+            "account_email": expected.get("account_email", settings.google_center_account_email),
+            "calendar_id": expected.get("calendar_id", settings.google_calendar_id),
         },
     )
 
@@ -89,8 +104,9 @@ def google_callback(request: Request, settings: SettingsDep) -> HTMLResponse:
         <html lang="es">
           <head><meta charset="utf-8"><title>Kika Orbit conectado</title></head>
           <body style="font-family: system-ui; padding: 2rem;">
-            <h1>Google conectado con Kika Orbit</h1>
-            <p>Ya puedes volver a la app local.</p>
+            <h1>Calendario oficial conectado con Kika Orbit</h1>
+            <p>La cuenta Google del centro quedo enlazada. Las administradoras siguen entrando
+            con su usuario interno de Kika Orbit.</p>
             <p><a href="/app">Abrir Kika Orbit</a></p>
           </body>
         </html>

@@ -100,7 +100,7 @@ La recomendación es:
 - Asociación por centro de estudiantes o unidad
 - Evitar mezclar calendarios personales no seleccionados
 
-Para partir no se requiere dominio institucional ni Google Workspace. La primera integración puede usar la cuenta Google personal autorizada por Kika, creando eventos e invitaciones desde Calendar. La estrategia completa está en [`docs/estrategia-google-sin-dominio.md`](docs/estrategia-google-sin-dominio.md).
+Para partir no se requiere dominio institucional ni Google Workspace. La primera integración usa una cuenta Google oficial del centro, no el Google personal de cada administradora. En el piloto de Psicologia esa cuenta es `cc.ee.psicologia1@gmail.com`; cada integrante entra a Kika Orbit con RUT, clave y rol interno. La estrategia completa está en [`docs/estrategia-google-sin-dominio.md`](docs/estrategia-google-sin-dominio.md).
 
 ### Fase 4: Multi-centro / multiunidad
 

@@ -2,14 +2,15 @@
 
 Kika Orbit no necesita partir con dominio institucional ni Google Workspace.
 
-La ruta recomendada es usar OAuth con la cuenta Google personal de Kika o de la persona que administre el calendario. Esto permite trabajar con Google Calendar y, si hace falta, Gmail API sin pedir contrasenias, sin guardar claves de correo y sin inventar un webmail propio.
+La ruta recomendada para el piloto de Psicologia es usar OAuth con una sola cuenta Google del centro: `cc.ee.psicologia1@gmail.com`. Esa cuenta representa el calendario oficial del Centro de Estudiantes de Psicologia. Las administradoras no entran a Kika Orbit con Google: cada una usa autenticacion interna por RUT y clave, con roles y auditoria propios.
 
 ## Decision inicial
 
 - Usar Google Calendar como primera integracion.
-- Crear eventos desde la cuenta autorizada por OAuth.
+- Crear eventos desde la cuenta oficial del centro autorizada por OAuth.
 - Agregar asistentes para que Google envie invitaciones del calendario.
-- No mezclar eventos privados: Kika Orbit solo lee/escribe los calendarios que la persona conecte o seleccione.
+- No mezclar eventos privados: Kika Orbit solo lee/escribe el calendario autorizado del centro.
+- Mantener Google OAuth separado del login interno de administradoras.
 - No usar SMTP webmail como dependencia principal porque este proyecto no parte con dominio propio.
 
 ## Lo que se hereda de Castel
@@ -19,7 +20,7 @@ Castel tenia una idea util: plantillas de avisos, destinatarios autorizados, men
 En Kika Orbit se conserva el concepto, pero cambia el proveedor:
 
 - Castel: SMTP/webmail del hosting.
-- Kika Orbit: Google OAuth sobre cuenta personal.
+- Kika Orbit: Google OAuth sobre la cuenta calendario del centro.
 
 Asi evitamos que Kika tenga que crear un correo institucional solo para desarrollar el producto.
 
@@ -29,7 +30,7 @@ Esta es la forma mas limpia para empezar.
 
 Flujo:
 
-1. Kika conecta su Google.
+1. Una administradora autorizada conecta el Google del centro.
 2. La app guarda un token OAuth cifrado.
 3. Al crear un evento, la app lo inserta en Google Calendar.
 4. Si hay asistentes, se agregan en el campo `attendees`.
@@ -45,7 +46,7 @@ Ventajas:
 
 Limitacion:
 
-- La invitacion sale desde la cuenta Google conectada, no desde un correo institucional generico.
+- La invitacion sale desde la cuenta Google conectada del centro, no desde la cuenta personal de cada administradora.
 
 ## Fase 2: Gmail API para avisos
 
@@ -71,6 +72,7 @@ Si mas adelante Kika, una universidad o un centro compra dominio, no se rehace e
 Proveedores posibles:
 
 - Google Calendar personal
+- Google Calendar de centro de estudiantes
 - Google Workspace institucional
 - Microsoft 365
 - SMTP propio
@@ -88,11 +90,13 @@ GOOGLE_CLIENT_SECRET=
 GOOGLE_REDIRECT_URI=http://localhost:8000/api/integrations/google/callback
 GOOGLE_CALENDAR_SCOPES=https://www.googleapis.com/auth/calendar.events
 GOOGLE_GMAIL_SCOPES=https://www.googleapis.com/auth/gmail.send
+GOOGLE_CENTER_ACCOUNT_EMAIL=cc.ee.psicologia1@gmail.com
+GOOGLE_CALENDAR_ID=primary
 ```
 
 ## Pendiente tecnico
 
-- Crear tabla de cuentas conectadas.
+- Persistir cada conexion OAuth en la tabla de cuentas conectadas por centro.
 - Guardar tokens cifrados.
 - Crear pantalla de conexion Google.
 - Implementar callback OAuth.

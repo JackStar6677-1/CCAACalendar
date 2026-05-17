@@ -25,6 +25,8 @@ No se deben mezclar calendarios personales con el calendario institucional.
 
 El sistema debe operar con cuentas autorizadas de centro o unidad, no con cualquier Gmail personal de estudiantes.
 
+Para el piloto de Psicologia, la cuenta calendario oficial sera `cc.ee.psicologia1@gmail.com`. Esta cuenta se conecta una vez por OAuth y representa el calendario compartido del centro. Las integrantes del centro no deben compartir la clave de esa cuenta para usar Kika Orbit: cada una entra con su usuario interno, RUT, clave y rol.
+
 Ejemplos de centros o capas:
 
 - Psicologia
@@ -43,6 +45,8 @@ Flujo deseado:
 2. Kika Orbit lo refleja en la web.
 3. Si Kika Orbit crea un evento, debe poder sincronizarlo hacia Google Calendar.
 4. La web debe evitar leer o publicar eventos personales que no pertenezcan al calendario autorizado.
+
+La autenticacion Google no reemplaza la autenticacion interna. Google sirve para sincronizar eventos del calendario del centro; Kika Orbit decide quien puede crear, editar o revisar cambios mediante permisos propios.
 
 ## Coordinacion de espacios
 
