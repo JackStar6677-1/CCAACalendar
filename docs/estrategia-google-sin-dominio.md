@@ -2,7 +2,7 @@
 
 Kika Orbit no necesita partir con dominio institucional ni Google Workspace.
 
-La ruta recomendada para el piloto de Psicologia es usar OAuth con una sola cuenta Google del centro: `cc.ee.psicologia1@gmail.com`. Esa cuenta representa el calendario oficial del Centro de Estudiantes de Psicologia. Las administradoras no entran a Kika Orbit con Google: cada una usa autenticacion interna por RUT y clave, con roles y auditoria propios.
+La ruta recomendada para el piloto de Psicologia es usar OAuth con una sola cuenta Google del centro, configurada fuera del repo publico mediante `.env` o secretos del servidor. Esa cuenta representa el calendario oficial del Centro de Estudiantes de Psicologia. Las administradoras no entran a Kika Orbit con Google: cada una usa autenticacion interna por RUT y clave, con roles y auditoria propios.
 
 ## Decision inicial
 
@@ -90,7 +90,7 @@ GOOGLE_CLIENT_SECRET=
 GOOGLE_REDIRECT_URI=http://localhost:8000/api/integrations/google/callback
 GOOGLE_CALENDAR_SCOPES=https://www.googleapis.com/auth/calendar.events
 GOOGLE_GMAIL_SCOPES=https://www.googleapis.com/auth/gmail.send
-GOOGLE_CENTER_ACCOUNT_EMAIL=cc.ee.psicologia1@gmail.com
+GOOGLE_CENTER_ACCOUNT_EMAIL=
 GOOGLE_CALENDAR_ID=primary
 ```
 

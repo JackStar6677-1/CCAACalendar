@@ -25,7 +25,7 @@ No se deben mezclar calendarios personales con el calendario institucional.
 
 El sistema debe operar con cuentas autorizadas de centro o unidad, no con cualquier Gmail personal de estudiantes.
 
-Para el piloto de Psicologia, la cuenta calendario oficial sera `cc.ee.psicologia1@gmail.com`. Esta cuenta se conecta una vez por OAuth y representa el calendario compartido del centro. Las integrantes del centro no deben compartir la clave de esa cuenta para usar Kika Orbit: cada una entra con su usuario interno, RUT, clave y rol.
+Para el piloto de Psicologia, la cuenta calendario oficial se configura fuera del repo publico. Esta cuenta se conecta una vez por OAuth y representa el calendario compartido del centro. Las integrantes del centro no deben compartir la clave de esa cuenta para usar Kika Orbit: cada una entra con su usuario interno, RUT, clave y rol.
 
 Ejemplos de centros o capas:
 

@@ -46,11 +46,7 @@ Kika Orbit busca ser el centro de mando para resolver eso con calendarios por ce
 
 ## Decisión Clave Sobre Google
 
-Para el piloto de Psicología se usará **una sola cuenta Google del centro**:
-
-```text
-cc.ee.psicologia1@gmail.com
-```
+Para el piloto de Psicología se usará **una sola cuenta Google del centro**, configurada solo en el `.env` local o en secretos del servidor.
 
 Esa cuenta se conecta por OAuth y representa el calendario oficial del Centro de Estudiantes de Psicología.
 
@@ -73,7 +69,7 @@ flowchart LR
     API --> Audit["Auditoría"]
     API --> Holidays["Feriados Chile"]
     API --> OAuth["Google OAuth 2.0"]
-    OAuth --> Calendar["Google Calendar<br/>cc.ee.psicologia1@gmail.com"]
+    OAuth --> Calendar["Google Calendar<br/>cuenta oficial del centro"]
     Legacy["Castel Calendar legacy"] -.referencia.-> API
 ```
 
@@ -151,7 +147,7 @@ ENVIRONMENT=local
 DATABASE_URL=sqlite:///./.local/kika_orbit.db
 GOOGLE_REDIRECT_URI=http://localhost:8000/api/integrations/google/callback
 GOOGLE_CALENDAR_SCOPES=https://www.googleapis.com/auth/calendar.events
-GOOGLE_CENTER_ACCOUNT_EMAIL=cc.ee.psicologia1@gmail.com
+GOOGLE_CENTER_ACCOUNT_EMAIL=
 GOOGLE_CALENDAR_ID=primary
 ADMIN_ROSTER_PATH=.local/admin_roster.json
 ADMIN_IDENTITY_PEPPER=change-this-local-secret
@@ -193,11 +189,7 @@ https://kika.drakescraft.cl
 ```
 
 8. Mantener la app en **Testing** mientras desarrollamos.
-9. Agregar como test user la cuenta que conectará el calendario:
-
-```text
-cc.ee.psicologia1@gmail.com
-```
+9. Agregar como test user la cuenta real que conectará el calendario del centro.
 
 10. Descargar el JSON OAuth solo en local y guardarlo como:
 
