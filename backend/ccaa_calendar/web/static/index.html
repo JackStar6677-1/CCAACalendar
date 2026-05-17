@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>CCAACalendar | Calendario institucional</title>
+    <meta
+      name="description"
+      content="Primer tablero web de CCAACalendar para coordinar calendarios universitarios, centros y espacios compartidos."
+    />
+    <meta name="theme-color" content="#ff7a2f" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="icon" href="/assets/orbit-icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/assets/orbit-icon.svg" />
+    <link rel="preload" href="/assets/orbit-rings.svg" as="image" />
+    <link rel="stylesheet" href="/assets/styles.css?v=2" />
+  </head>
+  <body>
+    <div class="ambient ambient-one"></div>
+    <div class="ambient ambient-two"></div>
+    <main class="shell" data-screen="login">
+      <section class="login-view" aria-labelledby="login-title">
+        <div class="brand-panel">
+          <span class="eyebrow">CCAACalendar · piloto académico</span>
+          <div class="orbit-mark" aria-hidden="true">
+            <span></span>
+            <span></span>
+            <strong>CA</strong>
+          </div>
+          <h1 id="login-title">Un centro de mando para que el calendario no se vuelva nebulosa.</h1>
+          <p>
+            Agenda institucional, reservas de espacios y coordinación por centro en una sola vista.
+            Este primer corte es visual y operativo para seguir construyendo encima.
+          </p>
+          <div class="signal-row" aria-label="Modulos del piloto">
+            <span>Psicologia</span>
+            <span>Auditorios</span>
+            <span>Google Calendar</span>
+          </div>
+        </div>
+
+        <form class="login-card" id="login-form">
+          <div>
+            <span class="eyebrow">Acceso demo</span>
+            <h2>Entrar al panel</h2>
+            <p>
+              Cada administradora entra con su RUT y clave propia. Google solo conecta el calendario
+              compartido del centro.
+            </p>
+          </div>
+          <label>
+            RUT administrador
+            <input name="rut" placeholder="12.345.678-9" autocomplete="username" />
+          </label>
+          <label>
+            Clave
+            <input name="password" placeholder="Tu clave de CCAACalendar" type="password" autocomplete="current-password" />
+          </label>
+          <button class="primary-action" type="submit">Abrir calendario</button>
+          <a class="google-entry-action" href="/api/integrations/google/login">
+            Conectar Google del centro
+          </a>
+          <button class="ghost-action" type="button" id="demo-button">Usar modo invitado</button>
+          <p class="microcopy" id="login-status">
+            El acceso real usa RUT autorizado y clave propia. El modo invitado queda para mostrar la maqueta.
+          </p>
+        </form>
+      </section>
+
+      <section class="app-view" aria-label="Panel de CCAACalendar">
+        <aside class="sidebar">
+          <div class="mini-brand">
+            <div class="mini-logo">CA</div>
+            <div>
+              <strong>CCAACalendar</strong>
+              <span>Calendario vivo</span>
+            </div>
+          </div>
+          <nav aria-label="Navegacion principal">
+            <button class="nav-item active">Calendario</button>
+            <button class="nav-item">Reservas</button>
+            <button class="nav-item">Centros</button>
+            <button class="nav-item">Importar Word</button>
+          </nav>
+          <div class="sound-card">
+            <span>Soniditos</span>
+            <button id="sound-toggle" type="button" aria-pressed="false">Activar</button>
+          </div>
+          <div class="install-card">
+            <span>PWA</span>
+            <p>Instalable como acceso rapido mientras seguimos desarrollando.</p>
+            <button id="install-button" type="button" hidden>Instalar</button>
+          </div>
+        </aside>
+
+        <section class="workspace">
+          <header class="topbar">
+            <div>
+              <span class="eyebrow">Universidad Demo · Psicologia</span>
+              <h2>Calendario base de mayo 2026</h2>
+            </div>
+            <div class="top-actions">
+              <button class="ghost-action compact" id="today-button" type="button">Hoy</button>
+              <button class="primary-action compact" id="new-event-button" type="button">Nuevo evento</button>
+            </div>
+          </header>
+
+          <section class="metrics" aria-label="Resumen operativo">
+            <article>
+              <span>Eventos activos</span>
+              <strong id="metric-events">0</strong>
+            </article>
+            <article>
+              <span>Espacios clave</span>
+              <strong>3</strong>
+            </article>
+            <article>
+              <span>Conflictos</span>
+              <strong class="gold">1</strong>
+            </article>
+            <article>
+              <span>Feriados irrenunciables</span>
+              <strong id="metric-holidays">0</strong>
+            </article>
+          </section>
+
+          <section class="mission-strip" id="mission-strip" aria-label="Modulos operativos de CCAACalendar">
+            <article class="mission-card sync-card">
+              <span class="eyebrow">Google Calendar</span>
+              <strong id="google-status-badge">Revisando conexión</strong>
+              <p id="google-status-detail">Validando OAuth local y calendario oficial del centro.</p>
+            </article>
+          </section>
+
+          <div class="content-grid">
+            <section class="calendar-panel" aria-labelledby="calendar-title">
+              <div class="panel-heading">
+                <div>
+                  <span class="eyebrow">Vista mensual</span>
+                  <h3 id="calendar-title">Mayo 2026</h3>
+                </div>
+                <div class="calendar-legend">
+                  <span><i class="dot orange"></i> Centro</span>
+                  <span><i class="dot violet"></i> Academia</span>
+                  <span><i class="dot gold"></i> Espacio</span>
+                  <span><i class="dot red"></i> Irrenunciable</span>
+                </div>
+              </div>
+              <div class="weekdays" aria-hidden="true">
+                <span>Lun</span><span>Mar</span><span>Mie</span><span>Jue</span><span>Vie</span><span>Sab</span><span>Dom</span>
+              </div>
+              <div class="calendar-grid" id="calendar-grid"></div>
+            </section>
+
+            <aside class="agenda-panel" aria-labelledby="agenda-title">
+              <div class="panel-heading">
+                <div>
+                  <span class="eyebrow">Proximos hitos</span>
+                  <h3 id="agenda-title">Agenda viva</h3>
+                </div>
+              </div>
+              <div class="agenda-list" id="agenda-list"></div>
+              <div class="google-panel">
+                <span class="eyebrow">Cuenta oficial del centro</span>
+                <h4>Calendario Psicologia conectado</h4>
+                <p>
+                  La integracion usa una sola cuenta compartida para el Centro de Estudiantes de
+                  Psicologia, configurada fuera del repo publico. Las chicas no comparten clave
+                  Google: cada una opera con su acceso interno de CCAACalendar.
+                </p>
+                <a class="google-link" href="/api/integrations/google/login">Conectar calendario oficial</a>
+                <ul>
+                  <li>Fase 1: eventos e invitaciones desde el calendario del centro.</li>
+                  <li>Fase 2: permisos internos por RUT, rol y auditoria.</li>
+                  <li>Fase 3: si aparece dominio institucional, cambiamos el proveedor sin rehacer la app.</li>
+                </ul>
+              </div>
+            </aside>
+          </div>
+        </section>
+      </section>
+
+      <dialog class="event-dialog" id="event-dialog">
+        <form method="dialog" id="event-form">
+          <div class="panel-heading">
+            <div>
+              <span class="eyebrow">Crear evento rapido</span>
+              <h3>Nuevo movimiento orbital</h3>
+            </div>
+            <button class="icon-button" value="cancel" aria-label="Cerrar">x</button>
+          </div>
+          <label>
+            Titulo
+            <input name="title" value="Asamblea centro de estudiantes" required minlength="2" />
+          </label>
+          <label>
+            Categoria
+            <select name="category">
+              <option value="centro">Centro</option>
+              <option value="academico">Academico</option>
+              <option value="espacio">Espacio</option>
+            </select>
+          </label>
+          <div class="split-fields">
+            <label>
+              Inicio
+              <input name="starts_at" type="datetime-local" value="2026-05-26T14:00" required />
+            </label>
+            <label>
+              Termino
+              <input name="ends_at" type="datetime-local" value="2026-05-26T16:00" required />
+            </label>
+          </div>
+          <label>
+            Detalle
+            <textarea name="description">Coordinacion inicial con sala por confirmar.</textarea>
+          </label>
+          <button class="primary-action" type="submit">Guardar en calendario</button>
+        </form>
+      </dialog>
+    </main>
+    <script src="/assets/app.js?v=2" type="module"></script>
+  </body>
+</html>

@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">CCAACalendar OAuth Logo</title>
+  <desc id="desc">Logo cuadrado de CCAACalendar para pantalla de consentimiento de OAuth.</desc>
+  <defs>
+    <radialGradient id="background" cx="32%" cy="24%" r="86%">
+      <stop offset="0" stop-color="#3a204e"/>
+      <stop offset=".48" stop-color="#1b1128"/>
+      <stop offset="1" stop-color="#100b18"/>
+    </radialGradient>
+    <linearGradient id="orbitA" x1="78" x2="438" y1="132" y2="382" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ff7a2f"/>
+      <stop offset=".52" stop-color="#ffd166"/>
+      <stop offset="1" stop-color="#8f5cff"/>
+    </linearGradient>
+    <linearGradient id="core" x1="170" x2="350" y1="164" y2="354" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ff8a3d"/>
+      <stop offset=".52" stop-color="#ffd166"/>
+      <stop offset="1" stop-color="#8f5cff"/>
+    </linearGradient>
+    <filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="9" result="blur"/>
+      <feColorMatrix in="blur" type="matrix" values="1 0 0 0 1  0 1 0 0 .48  0 0 1 0 .18  0 0 0 .55 0"/>
+      <feBlend in="SourceGraphic"/>
+    </filter>
+  </defs>
+  <rect width="512" height="512" rx="116" fill="url(#background)"/>
+  <circle cx="126" cy="124" r="7" fill="#ffd166" opacity=".72"/>
+  <circle cx="402" cy="132" r="10" fill="#8f5cff" opacity=".62"/>
+  <circle cx="385" cy="376" r="6" fill="#ff7a2f" opacity=".74"/>
+  <ellipse cx="256" cy="256" rx="206" ry="78" fill="none" stroke="url(#orbitA)" stroke-width="24" opacity=".92" transform="rotate(-24 256 256)"/>
+  <ellipse cx="256" cy="256" rx="174" ry="59" fill="none" stroke="#8f5cff" stroke-width="16" opacity=".62" transform="rotate(28 256 256)"/>
+  <circle cx="256" cy="256" r="111" fill="url(#core)" filter="url(#glow)"/>
+  <circle cx="373" cy="166" r="28" fill="#ff7a2f"/>
+  <path fill="#fff7e8" d="M181 318V194h35v48l43-48h43l-52 56 57 68h-45l-46-55v55h-35Zm141 0V194h35v124h-35Z"/>
+</svg>

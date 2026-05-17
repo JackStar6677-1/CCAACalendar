@@ -1,2 +1,0 @@
-"""Kika Orbit backend package."""
-

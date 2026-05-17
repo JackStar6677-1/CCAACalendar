@@ -1,6 +1,6 @@
 # Database migrations
 
-Kika Orbit usa Alembic para preparar el salto de SQLite local a PostgreSQL.
+CCAACalendar usa Alembic para preparar el salto de SQLite local a PostgreSQL.
 
 Comandos utiles:
 

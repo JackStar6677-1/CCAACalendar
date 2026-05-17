@@ -1,9 +1,9 @@
 from logging.config import fileConfig
 
 from alembic import context
-from kika_orbit import models  # noqa: F401
-from kika_orbit.database import Base
-from kika_orbit.settings import get_settings
+from ccaa_calendar import models  # noqa: F401
+from ccaa_calendar.database import Base
+from ccaa_calendar.settings import get_settings
 from sqlalchemy import engine_from_config, pool
 
 config = context.config

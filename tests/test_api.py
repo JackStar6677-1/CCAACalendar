@@ -1,12 +1,12 @@
 import json
 import uuid
 
+from ccaa_calendar.domain.admin_roster import load_admin_roster
+from ccaa_calendar.domain.rut import is_valid_rut, mask_rut, normalize_rut
+from ccaa_calendar.integrations.google_oauth import is_google_oauth_configured
+from ccaa_calendar.main import app
+from ccaa_calendar.settings import Settings, get_settings
 from fastapi.testclient import TestClient
-from kika_orbit.domain.admin_roster import load_admin_roster
-from kika_orbit.domain.rut import is_valid_rut, mask_rut, normalize_rut
-from kika_orbit.integrations.google_oauth import is_google_oauth_configured
-from kika_orbit.main import app
-from kika_orbit.settings import Settings, get_settings
 
 
 def test_healthcheck() -> None:
@@ -24,7 +24,7 @@ def test_web_home_loads() -> None:
         manifest_response = client.get("/manifest.webmanifest")
 
     assert response.status_code == 200
-    assert "Kika Orbit" in response.text
+    assert "CCAACalendar" in response.text
     assert "configurada fuera del repo publico" in response.text
     assert styles_response.status_code == 200
     assert manifest_response.status_code == 200
@@ -144,7 +144,7 @@ def test_google_event_sync_preview_uses_calendar_payload() -> None:
     payload = sync_response.json()
     assert payload["mode"] == "dry_run"
     assert payload["payload"]["summary"] == "Asamblea sincronizable"
-    assert payload["payload"]["extendedProperties"]["private"]["kika_orbit_event_id"]
+    assert payload["payload"]["extendedProperties"]["private"]["ccaa_calendar_event_id"]
 
 
 def test_rut_validation_and_masking() -> None:

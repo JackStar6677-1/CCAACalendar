@@ -1,8 +1,8 @@
 # Castel calendar legacy
 
-Esta carpeta conserva la base heredada de Castel que se uso como punto de partida conceptual para Kika Orbit.
+Esta carpeta conserva la base heredada de Castel que se uso como punto de partida conceptual para CCAACalendar.
 
-No es el producto principal nuevo. Kika Orbit debe crecer desde `backend/kika_orbit`, `data`, `docs` y `tests`.
+No es el producto principal nuevo. CCAACalendar debe crecer desde `backend/ccaa_calendar`, `data`, `docs` y `tests`.
 
 ## Que se conserva aqui
 
@@ -25,5 +25,5 @@ Usar esta carpeta como referencia para migrar ideas, no como runtime principal:
 
 - No subir secretos reales.
 - No copiar `mail_config.php` ni JSON privados al repo publico.
-- No reactivar PHP como dependencia central de Kika Orbit salvo decision explicita.
+- No reactivar PHP como dependencia central de CCAACalendar salvo decision explicita.
 - Si se extrae logica, llevarla a Python/FastAPI con modelos SQL y tests.

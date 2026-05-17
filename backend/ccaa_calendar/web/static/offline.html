@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>CCAACalendar | Sin conexion</title>
+    <meta name="theme-color" content="#ff7a2f" />
+    <link rel="icon" href="/assets/orbit-icon.svg" type="image/svg+xml" />
+    <style>
+      :root {
+        color-scheme: dark;
+        font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+      }
+
+      body {
+        display: grid;
+        min-height: 100vh;
+        margin: 0;
+        place-items: center;
+        background:
+          radial-gradient(circle at top left, rgba(255, 122, 47, 0.32), transparent 26rem),
+          linear-gradient(135deg, #160f1f, #2a1836);
+        color: #fff7e8;
+      }
+
+      main {
+        width: min(34rem, calc(100vw - 2rem));
+        border: 1px solid rgba(255, 255, 255, 0.16);
+        border-radius: 28px;
+        padding: 2rem;
+        background: rgba(34, 24, 46, 0.82);
+        box-shadow: 0 24px 80px rgba(0, 0, 0, 0.38);
+      }
+
+      img {
+        width: 4rem;
+        height: 4rem;
+      }
+
+      h1 {
+        margin: 1rem 0 0.5rem;
+        font-size: clamp(2rem, 8vw, 4rem);
+        line-height: 0.95;
+      }
+
+      p {
+        color: #c9b7d8;
+        line-height: 1.6;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <img src="/assets/orbit-icon.svg" alt="" />
+      <h1>Orbitando sin conexion.</h1>
+      <p>
+        La vista base esta guardada, pero para iniciar sesion, sincronizar Google o guardar cambios
+        necesitamos internet. Vuelve a intentar cuando la conexion regrese.
+      </p>
+    </main>
+  </body>
+</html>

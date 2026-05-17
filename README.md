@@ -1,12 +1,12 @@
-# Kika Orbit
+# CCAACalendar
 
-![Kika Orbit orbital banner](docs/brand/kika-orbit-readme-banner.svg)
+![CCAACalendar orbital banner](docs/brand/ccaa-calendar-readme-banner.svg)
 
 **Calendario vivo para centros de estudiantes, coordinación universitaria y reservas de espacios.**
 
-Kika Orbit convierte un calendario académico y administrativo en una plataforma web/PWA para crear eventos, coordinar centros, evitar choques de espacios y sincronizar el calendario oficial del centro con Google Calendar.
+CCAACalendar convierte un calendario académico y administrativo en una plataforma web/PWA para crear eventos, coordinar centros, evitar choques de espacios y sincronizar el calendario oficial del centro con Google Calendar.
 
-> Proyecto en desarrollo activo. La carpeta local todavía se llama `CastelRoomKeeper` porque nació desde el calendario de Castel, pero el producto público es **Kika Orbit**.
+> Proyecto en desarrollo activo. La carpeta local todavía se llama `CastelRoomKeeper` porque nació desde el calendario de Castel, pero el producto público es **CCAACalendar**.
 
 ## Estado Actual
 
@@ -23,14 +23,14 @@ Kika Orbit convierte un calendario académico y administrativo en una plataforma
 
 ## Identidad Del Producto
 
-El nombre de trabajo es **Kika Orbit**: una marca orbital, universitaria y fácil de adaptar. La identidad debe quedar configurable para que el producto pueda cambiar de nombre, logo, colores o dominio sin rehacer la base técnica.
+El nombre público actual es **CCAACalendar**: una marca neutra para centro de estudiantes, universitaria y fácil de adaptar. La identidad debe quedar configurable para que el producto pueda cambiar de nombre, logo, colores o dominio sin rehacer la base técnica.
 
 Elementos actuales de marca:
 
 - Paleta visual: naranja, morado, dorado y acentos espaciales.
-- Logo OAuth: [`docs/brand/kika-orbit-oauth-logo.svg`](docs/brand/kika-orbit-oauth-logo.svg).
-- Banner README: [`docs/brand/kika-orbit-readme-banner.svg`](docs/brand/kika-orbit-readme-banner.svg).
-- UI PWA: [`backend/kika_orbit/web/static`](backend/kika_orbit/web/static).
+- Logo OAuth: [`docs/brand/ccaa-calendar-oauth-logo.svg`](docs/brand/ccaa-calendar-oauth-logo.svg).
+- Banner README: [`docs/brand/ccaa-calendar-readme-banner.svg`](docs/brand/ccaa-calendar-readme-banner.svg).
+- UI PWA: [`backend/ccaa_calendar/web/static`](backend/ccaa_calendar/web/static).
 
 ## Qué Problema Resuelve
 
@@ -42,7 +42,7 @@ Los centros y unidades universitarias suelen coordinar actividades con calendari
 - dificultad para saber quién creó, cambió o aprobó una actividad;
 - poca trazabilidad para coordinación universitaria.
 
-Kika Orbit busca ser el centro de mando para resolver eso con calendarios por centro, vista general, roles, auditoría y sincronización con Google Calendar.
+CCAACalendar busca ser el centro de mando para resolver eso con calendarios por centro, vista general, roles, auditoría y sincronización con Google Calendar.
 
 ## Decisión Clave Sobre Google
 
@@ -53,7 +53,7 @@ Esa cuenta se conecta por OAuth y representa el calendario oficial del Centro de
 Las integrantes del centro **no entran con Google** ni comparten la clave de esa cuenta. Cada administradora entra con:
 
 - RUT autorizado;
-- clave propia de Kika Orbit;
+- clave propia de CCAACalendar;
 - rol interno;
 - auditoría de acciones.
 
@@ -63,7 +63,7 @@ Google Calendar queda como integración de calendario compartido, no como identi
 
 ```mermaid
 flowchart LR
-    Admin["Administradora<br/>RUT + clave"] --> Web["Kika Orbit PWA"]
+    Admin["Administradora<br/>RUT + clave"] --> Web["CCAACalendar PWA"]
     Web --> API["FastAPI"]
     API --> DB[("SQLite local<br/>PostgreSQL objetivo")]
     API --> Audit["Auditoría"]
@@ -88,11 +88,11 @@ flowchart LR
 ## Estructura Del Repo
 
 ```text
-backend/kika_orbit/                 Producto principal FastAPI
-backend/kika_orbit/api/             Endpoints REST
-backend/kika_orbit/domain/          Reglas de negocio: RUT, feriados, roster admin
-backend/kika_orbit/integrations/    OAuth e integraciones externas
-backend/kika_orbit/web/static/      PWA y UI inicial
+backend/ccaa_calendar/                 Producto principal FastAPI
+backend/ccaa_calendar/api/             Endpoints REST
+backend/ccaa_calendar/domain/          Reglas de negocio: RUT, feriados, roster admin
+backend/ccaa_calendar/integrations/    OAuth e integraciones externas
+backend/ccaa_calendar/web/static/      PWA y UI inicial
 data/                               Ejemplos públicos, sin datos reales
 docs/                               Decisiones de producto, seguridad y arquitectura
 docs/brand/                         Assets de marca
@@ -107,7 +107,7 @@ Desde la raíz del repo:
 
 ```powershell
 uv sync
-uv run uvicorn kika_orbit.main:app --app-dir backend --reload
+uv run uvicorn ccaa_calendar.main:app --app-dir backend --reload
 ```
 
 Abrir:
@@ -141,10 +141,10 @@ uv run alembic revision --autogenerate -m "describe change"
 Crear un `.env` local a partir de `.env.example`.
 
 ```env
-APP_NAME=Kika Orbit
-PUBLIC_BRAND_NAME=Kika Orbit
+APP_NAME=CCAACalendar
+PUBLIC_BRAND_NAME=CCAACalendar
 ENVIRONMENT=local
-DATABASE_URL=sqlite:///./.local/kika_orbit.db
+DATABASE_URL=sqlite:///./.local/ccaa_calendar.db
 GOOGLE_REDIRECT_URI=http://localhost:8000/api/integrations/google/callback
 GOOGLE_CALENDAR_SCOPES=https://www.googleapis.com/auth/calendar.events
 GOOGLE_CENTER_ACCOUNT_EMAIL=
@@ -166,7 +166,7 @@ No subir:
 
 En Google Cloud, para el piloto, hay que dejar listo esto:
 
-1. Seleccionar el proyecto correcto de Kika Orbit.
+1. Seleccionar el proyecto correcto de CCAACalendar.
 2. Activar **Google Calendar API**.
 3. Configurar la pantalla de consentimiento OAuth.
 4. Crear o editar un cliente OAuth tipo **Web application**.
@@ -179,13 +179,13 @@ http://localhost:8000/api/integrations/google/callback
 6. Si se prueba con Cloudflare Tunnel, agregar también:
 
 ```text
-https://kika.drakescraft.cl/api/integrations/google/callback
+https://ccaa.drakescraft.cl/api/integrations/google/callback
 ```
 
 7. Agregar JavaScript origin público si se usa el dominio:
 
 ```text
-https://kika.drakescraft.cl
+https://ccaa.drakescraft.cl
 ```
 
 8. Mantener la app en **Testing** mientras desarrollamos.
@@ -269,11 +269,11 @@ La regla de trabajo es clara:
 
 - migrar ideas útiles hacia Python/FastAPI;
 - mantener SQL y tests como base nueva;
-- no convertir el PHP heredado en runtime principal de Kika Orbit salvo instrucción explícita.
+- no convertir el PHP heredado en runtime principal de CCAACalendar salvo instrucción explícita.
 
 ## Documentación
 
-- [`docs/requerimientos-kika.md`](docs/requerimientos-kika.md): resumen de lo pedido por Kika.
+- [`docs/requerimientos-CCAA.md`](docs/requerimientos-CCAA.md): resumen de lo pedido por CCAA.
 - [`docs/estrategia-google-sin-dominio.md`](docs/estrategia-google-sin-dominio.md): estrategia Google sin Workspace.
 - [`docs/identidad-admin-rut.md`](docs/identidad-admin-rut.md): identidad de administradoras por RUT.
 - [`docs/diseno-calendario-multiusuario-y-bloqueos.md`](docs/diseno-calendario-multiusuario-y-bloqueos.md): diseño de calendario, espacios y bloqueos.

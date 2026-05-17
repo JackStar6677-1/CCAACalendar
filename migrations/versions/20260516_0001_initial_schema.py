@@ -1,4 +1,4 @@
-"""Initial Kika Orbit schema.
+"""Initial CCAACalendar schema.
 
 Revision ID: 0001_initial_schema
 Revises:

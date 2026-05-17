@@ -1,15 +1,15 @@
 # Estrategia Google sin dominio propio
 
-Kika Orbit no necesita partir con dominio institucional ni Google Workspace.
+CCAACalendar no necesita partir con dominio institucional ni Google Workspace.
 
-La ruta recomendada para el piloto de Psicologia es usar OAuth con una sola cuenta Google del centro, configurada fuera del repo publico mediante `.env` o secretos del servidor. Esa cuenta representa el calendario oficial del Centro de Estudiantes de Psicologia. Las administradoras no entran a Kika Orbit con Google: cada una usa autenticacion interna por RUT y clave, con roles y auditoria propios.
+La ruta recomendada para el piloto de Psicologia es usar OAuth con una sola cuenta Google del centro, configurada fuera del repo publico mediante `.env` o secretos del servidor. Esa cuenta representa el calendario oficial del Centro de Estudiantes de Psicologia. Las administradoras no entran a CCAACalendar con Google: cada una usa autenticacion interna por RUT y clave, con roles y auditoria propios.
 
 ## Decision inicial
 
 - Usar Google Calendar como primera integracion.
 - Crear eventos desde la cuenta oficial del centro autorizada por OAuth.
 - Agregar asistentes para que Google envie invitaciones del calendario.
-- No mezclar eventos privados: Kika Orbit solo lee/escribe el calendario autorizado del centro.
+- No mezclar eventos privados: CCAACalendar solo lee/escribe el calendario autorizado del centro.
 - Mantener Google OAuth separado del login interno de administradoras.
 - No usar SMTP webmail como dependencia principal porque este proyecto no parte con dominio propio.
 
@@ -17,12 +17,12 @@ La ruta recomendada para el piloto de Psicologia es usar OAuth con una sola cuen
 
 Castel tenia una idea util: plantillas de avisos, destinatarios autorizados, mensajes de aprobacion/rechazo y pruebas de envio.
 
-En Kika Orbit se conserva el concepto, pero cambia el proveedor:
+En CCAACalendar se conserva el concepto, pero cambia el proveedor:
 
 - Castel: SMTP/webmail del hosting.
-- Kika Orbit: Google OAuth sobre la cuenta calendario del centro.
+- CCAACalendar: Google OAuth sobre la cuenta calendario del centro.
 
-Asi evitamos que Kika tenga que crear un correo institucional solo para desarrollar el producto.
+Asi evitamos que CCAA tenga que crear un correo institucional solo para desarrollar el producto.
 
 ## Fase 1: Invitaciones por Calendar
 
@@ -67,7 +67,7 @@ Regla de producto:
 
 ## Fase 3: Proveedor intercambiable
 
-Si mas adelante Kika, una universidad o un centro compra dominio, no se rehace el producto. Se cambia el conector.
+Si mas adelante CCAA, una universidad o un centro compra dominio, no se rehace el producto. Se cambia el conector.
 
 Proveedores posibles:
 

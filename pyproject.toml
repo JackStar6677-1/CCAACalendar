@@ -1,5 +1,5 @@
 [project]
-name = "kika-orbit"
+name = "ccaa-calendar"
 version = "0.1.0"
 description = "Web SaaS for university calendars, student centers, institutional scheduling, and shared spaces."
 readme = "README.md"

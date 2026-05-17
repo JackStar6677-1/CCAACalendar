@@ -1,12 +1,12 @@
 # Identidad de administradores por RUT
 
-Kika Orbit puede usar RUT como identificador unico de administradores y directiva, pero no debe depender solo del RUT para iniciar sesion.
+CCAACalendar puede usar RUT como identificador unico de administradores y directiva, pero no debe depender solo del RUT para iniciar sesion.
 
 ## Enfoque recomendado
 
 - RUT: identificador legal/unico para evitar duplicados.
 - Correo: canal de contacto y recuperacion.
-- Password propia de Kika Orbit o login Google: metodo de acceso.
+- Password propia de CCAACalendar o login Google: metodo de acceso.
 - Rol: define que puede hacer cada persona.
 - Auditoria: todo cambio importante debe registrar actor, fecha y accion.
 
