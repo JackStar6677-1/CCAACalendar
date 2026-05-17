@@ -593,6 +593,10 @@ nav {
   background: var(--gold);
 }
 
+.dot.green {
+  background: var(--green);
+}
+
 .dot.red {
   background: #ff4d6d;
 }
@@ -672,6 +676,10 @@ nav {
   background: rgba(255, 209, 102, 0.2);
 }
 
+.event-pill.google {
+  background: rgba(129, 230, 195, 0.2);
+}
+
 .holiday-ribbon {
   display: block;
   margin-top: 0.42rem;
@@ -713,6 +721,10 @@ nav {
 
 .agenda-item.espacio {
   border-left-color: var(--gold);
+}
+
+.agenda-item.google {
+  border-left-color: var(--green);
 }
 
 .agenda-item.holiday {

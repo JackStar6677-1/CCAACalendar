@@ -114,7 +114,7 @@ function setLoginStatus(message, tone = "neutral") {
 }
 
 function normalizeCategory(category) {
-  if (category === "academico" || category === "espacio") return category;
+  if (category === "academico" || category === "espacio" || category === "google") return category;
   return "centro";
 }
 
@@ -309,12 +309,37 @@ async function hydrateGoogleStatus() {
       ? "Listo para conectar"
       : "Configuracion pendiente";
     googleStatusDetail.textContent = status.token_present
-      ? "Token OAuth local detectado. La sincronizacion ya puede usar el calendario oficial."
+      ? "Google conectado. Cargando eventos reales del calendario oficial."
       : "OAuth configurado sin exponer la cuenta en el repo publico. Falta completar el consentimiento si aun no hay token.";
     googleStatusBadge.dataset.ready = String(status.ready_to_connect);
   } catch {
     googleStatusBadge.textContent = "Sin conexion API";
     googleStatusDetail.textContent = "La interfaz funciona offline, pero la API local no respondio.";
+  }
+}
+
+async function hydrateGoogleEvents() {
+  try {
+    const response = await fetch("/api/integrations/google/events?max_results=50");
+    if (!response.ok) return;
+    const payload = await response.json();
+    if (!payload.connected) return;
+
+    const googleEvents = payload.events || [];
+    if (googleEvents.length > 0) {
+      events = [...googleEvents, ...events].filter(
+        (event, index, list) => list.findIndex((item) => item.id === event.id) === index,
+      );
+      googleStatusBadge.textContent = "Google sincronizado";
+      googleStatusDetail.textContent = `${googleEvents.length} eventos del calendario oficial cargados en la vista.`;
+      render();
+      return;
+    }
+
+    googleStatusBadge.textContent = "Google conectado";
+    googleStatusDetail.textContent = "La cuenta esta conectada, pero no hay eventos proximos para mostrar.";
+  } catch {
+    googleStatusDetail.textContent = "Google esta conectado, pero no pudimos leer eventos en este intento.";
   }
 }
 
@@ -490,4 +515,4 @@ render();
 hydrateOrbitConfig();
 hydrateHolidays();
 hydrateFromApi();
-hydrateGoogleStatus();
+hydrateGoogleStatus().then(hydrateGoogleEvents);

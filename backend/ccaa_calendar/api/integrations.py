@@ -6,7 +6,9 @@ from sqlalchemy.orm import Session
 
 from ccaa_calendar.database import get_session
 from ccaa_calendar.integrations.google_calendar import (
+    GoogleCalendarSyncError,
     GoogleCalendarTokenMissingError,
+    google_calendar_events,
     google_event_payload,
     insert_google_calendar_event,
     token_metadata,
@@ -91,6 +93,29 @@ def google_login(
     return RedirectResponse(authorization_url)
 
 
+@router.get("/events")
+def list_google_events(
+    settings: SettingsDep,
+    max_results: int = Query(default=40, ge=1, le=100),
+) -> dict[str, object]:
+    try:
+        events = google_calendar_events(settings, max_results=max_results)
+    except GoogleCalendarTokenMissingError:
+        return {
+            "connected": False,
+            "events": [],
+            "message": "Google Calendar todavia no esta conectado.",
+        }
+    except GoogleCalendarSyncError as exc:
+        raise HTTPException(status_code=502, detail=f"Google Calendar sync failed: {exc}") from exc
+
+    return {
+        "connected": True,
+        "events": events,
+        "count": len(events),
+    }
+
+
 @router.post("/events/{event_id}/sync")
 def sync_google_event(
     event_id: str,
@@ -132,7 +157,6 @@ def sync_google_event(
         "mode": "synced",
         "event_id": event.id,
         "google_event_id": event.google_event_id,
-        "html_link": google_event.get("htmlLink"),
     }
 
 
@@ -181,6 +205,11 @@ def google_callback(request: Request, settings: SettingsDep) -> HTMLResponse:
             <p>La cuenta Google del centro quedo enlazada. Las administradoras siguen entrando
             con su usuario interno de CCAACalendar.</p>
             <p><a href="/app">Abrir CCAACalendar</a></p>
+            <script>
+              window.setTimeout(() => {
+                window.location.href = "/app?google=connected";
+              }, 1400);
+            </script>
           </body>
         </html>
         """

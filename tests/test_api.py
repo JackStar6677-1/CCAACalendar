@@ -3,6 +3,7 @@ import uuid
 
 from ccaa_calendar.domain.admin_roster import load_admin_roster
 from ccaa_calendar.domain.rut import is_valid_rut, mask_rut, normalize_rut
+from ccaa_calendar.integrations.google_calendar import _is_calendar_event_allowed
 from ccaa_calendar.integrations.google_oauth import is_google_oauth_configured
 from ccaa_calendar.main import app
 from ccaa_calendar.settings import Settings, get_settings
@@ -168,6 +169,12 @@ def test_google_event_sync_preview_uses_calendar_payload() -> None:
     assert payload["mode"] == "dry_run"
     assert payload["payload"]["summary"] == "Asamblea sincronizable"
     assert payload["payload"]["extendedProperties"]["private"]["ccaa_calendar_event_id"]
+
+
+def test_google_calendar_filter_skips_private_personal_event() -> None:
+    assert _is_calendar_event_allowed({"summary": "Cátedra 2 Psico. Educacional I"})
+    assert _is_calendar_event_allowed({"summary": "Trabajo 4 Psico. Educacional I"})
+    assert not _is_calendar_event_allowed({"summary": "Cita personal"})
 
 
 def test_rut_validation_and_masking() -> None:
