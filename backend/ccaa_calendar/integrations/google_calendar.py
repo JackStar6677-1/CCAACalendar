@@ -70,6 +70,13 @@ def google_event_payload(event: Event) -> dict[str, Any]:
         "description": event.description,
         "start": {"dateTime": start, "timeZone": "UTC"},
         "end": {"dateTime": end, "timeZone": "UTC"},
+        "reminders": {
+            "useDefault": False,
+            "overrides": [
+                {"method": "popup", "minutes": 30},
+                {"method": "email", "minutes": 60},
+            ],
+        },
         "extendedProperties": {
             "private": {
                 "ccaa_calendar_event_id": event.id,

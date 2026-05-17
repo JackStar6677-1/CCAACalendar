@@ -159,6 +159,10 @@ button {
   color: #ffb7a6;
 }
 
+.microcopy[data-tone="neutral"] {
+  color: var(--muted);
+}
+
 .eyebrow {
   color: var(--gold);
   font-size: 0.76rem;
@@ -747,6 +751,54 @@ nav {
 .agenda-item p {
   margin: 0;
   font-size: 0.9rem;
+}
+
+.agenda-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.mini-action,
+.sync-chip {
+  border: 1px solid rgba(129, 230, 195, 0.24);
+  border-radius: 999px;
+  padding: 0.42rem 0.62rem;
+  background: rgba(129, 230, 195, 0.1);
+  color: var(--green);
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
+.mini-action.ghost {
+  border-color: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--muted);
+}
+
+.option-stack {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  border: 1px solid rgba(255, 209, 102, 0.14);
+  border-radius: 20px;
+  padding: 0.85rem;
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.check-option {
+  display: flex;
+  gap: 0.65rem;
+  align-items: center;
+  margin: 0;
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.check-option input {
+  width: auto;
+  accent-color: var(--orange);
 }
 
 .google-panel {

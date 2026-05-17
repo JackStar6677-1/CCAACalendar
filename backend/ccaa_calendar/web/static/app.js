@@ -12,8 +12,10 @@ const googleStatusBadge = document.querySelector("#google-status-badge");
 const googleStatusDetail = document.querySelector("#google-status-detail");
 const dialog = document.querySelector("#event-dialog");
 const eventForm = document.querySelector("#event-form");
+const eventSaveStatus = document.querySelector("#event-save-status");
 const newEventButton = document.querySelector("#new-event-button");
 const todayButton = document.querySelector("#today-button");
+const notificationButton = document.querySelector("#notification-button");
 const installButton = document.querySelector("#install-button");
 
 let soundEnabled = false;
@@ -22,6 +24,8 @@ let organizationId;
 let deferredInstallPrompt;
 let authSession;
 let orbitConfig;
+let googleConnected = false;
+let gmailAuthorized = false;
 
 const fallbackEvents = [
   {
@@ -108,6 +112,11 @@ function openApp() {
   render();
 }
 
+function setEventSaveStatus(message, tone = "neutral") {
+  eventSaveStatus.textContent = message;
+  eventSaveStatus.dataset.tone = tone;
+}
+
 function setLoginStatus(message, tone = "neutral") {
   loginStatus.textContent = message;
   loginStatus.dataset.tone = tone;
@@ -143,6 +152,36 @@ function formatTime(event) {
     hour: "2-digit",
     minute: "2-digit",
   })}`;
+}
+
+function canUseNotifications() {
+  return "Notification" in window;
+}
+
+async function ensureNotificationPermission() {
+  if (!canUseNotifications()) return "unsupported";
+  if (Notification.permission === "granted") return "granted";
+  if (Notification.permission === "denied") return "denied";
+  return Notification.requestPermission();
+}
+
+function notifyNow(title, body) {
+  if (!canUseNotifications() || Notification.permission !== "granted") return;
+  new Notification(title, {
+    body,
+    icon: "/assets/orbit-icon.svg",
+    tag: "ccaa-calendar-reminder",
+  });
+}
+
+function scheduleBrowserReminder(event) {
+  const startsAt = eventDate(event).getTime();
+  const reminderAt = startsAt - 30 * 60 * 1000;
+  const delay = reminderAt - Date.now();
+  if (delay <= 0 || delay > 24 * 60 * 60 * 1000) return;
+  window.setTimeout(() => {
+    notifyNow(`CCAACalendar: ${event.title}`, `Empieza en 30 minutos. ${event.description || ""}`);
+  }, delay);
 }
 
 function buildMonthDays() {
@@ -258,6 +297,33 @@ function renderAgenda() {
         <span>${formatTime(event)}</span>
         <p>${event.description || "Sin detalle todavia."}</p>
       `;
+      if (event.category !== "holiday") {
+        const actions = document.createElement("div");
+        actions.className = "agenda-actions";
+        if (event.google_event_id || event.source === "google_calendar") {
+          actions.innerHTML = `<span class="sync-chip">Sincronizado</span>`;
+        } else if (!String(event.id).startsWith("seed-")) {
+          const syncButton = document.createElement("button");
+          syncButton.type = "button";
+          syncButton.className = "mini-action";
+          syncButton.textContent = "Sincronizar Google";
+          syncButton.addEventListener("click", () => syncEventToGoogle(event.id));
+          actions.append(syncButton);
+        }
+
+        const reminderButton = document.createElement("button");
+        reminderButton.type = "button";
+        reminderButton.className = "mini-action ghost";
+        reminderButton.textContent = "Probar notificacion";
+        reminderButton.addEventListener("click", async () => {
+          const permission = await ensureNotificationPermission();
+          if (permission === "granted") {
+            notifyNow(`CCAACalendar: ${event.title}`, `Recordatorio de prueba para ${formatTime(event)}.`);
+          }
+        });
+        actions.append(reminderButton);
+        item.append(actions);
+      }
       agendaList.append(item);
     });
 }
@@ -305,11 +371,13 @@ async function hydrateGoogleStatus() {
     const response = await fetch("/api/integrations/google/status");
     if (!response.ok) return;
     const status = await response.json();
+    googleConnected = Boolean(status.token_present);
+    gmailAuthorized = Boolean(status.gmail_authorized);
     googleStatusBadge.textContent = status.ready_to_connect
       ? "Listo para conectar"
       : "Configuracion pendiente";
     googleStatusDetail.textContent = status.token_present
-      ? "Google conectado. Cargando eventos reales del calendario oficial."
+      ? `Google conectado. ${status.gmail_authorized ? "Correos Gmail autorizados." : "Correos Gmail pendientes de permiso."}`
       : "OAuth configurado sin exponer la cuenta en el repo publico. Falta completar el consentimiento si aun no hay token.";
     googleStatusBadge.dataset.ready = String(status.ready_to_connect);
   } catch {
@@ -420,12 +488,71 @@ async function createEventFromForm(formData) {
     });
 
     if (response.ok) {
-      events = [await response.json(), ...events];
-      return;
+      const createdEvent = await response.json();
+      events = [createdEvent, ...events];
+      return createdEvent;
     }
   }
 
   events = [localEvent, ...events];
+  return localEvent;
+}
+
+async function syncEventToGoogle(eventId) {
+  googleStatusBadge.textContent = "Sincronizando...";
+  googleStatusDetail.textContent = "Enviando evento local al calendario oficial de Google.";
+  const response = await fetch(
+    `/api/integrations/google/events/${eventId}/sync?dry_run=false&confirm=sync-google-calendar`,
+    { method: "POST" },
+  );
+
+  if (!response.ok) {
+    googleStatusBadge.textContent = "Sync pendiente";
+    googleStatusDetail.textContent = "No pudimos publicar en Google. Revisa que la cuenta siga conectada.";
+    return false;
+  }
+
+  const payload = await response.json();
+  events = events.map((item) =>
+    item.id === eventId
+      ? {
+          ...item,
+          google_event_id: payload.google_event_id,
+          google_calendar_id: payload.google_calendar_id,
+          source: "google_sync",
+        }
+      : item,
+  );
+  googleStatusBadge.textContent = "Google sincronizado";
+  googleStatusDetail.textContent = "Evento guardado en Google Calendar con recordatorios popup y correo.";
+  render();
+  return true;
+}
+
+async function sendReminderEmail(eventId, formData) {
+  const recipientEmail = String(formData.get("reminder_email") || "").trim();
+  if (!recipientEmail) return;
+
+  const response = await fetch(`/api/integrations/google/events/${eventId}/reminder-email`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      recipient_email: recipientEmail,
+      minutes_before: 60,
+      note: "Recordatorio creado desde la vista piloto de CCAACalendar.",
+    }),
+  });
+
+  if (!response.ok) {
+    setEventSaveStatus(
+      gmailAuthorized
+        ? "El evento se guardo, pero Gmail no pudo enviar el correo."
+        : "Evento guardado. Para correos directos, activa Gmail con el boton del panel.",
+      "warning",
+    );
+    return;
+  }
+  setEventSaveStatus("Evento guardado y correo de recordatorio enviado.", "success");
 }
 
 loginForm.addEventListener("submit", async (event) => {
@@ -482,9 +609,47 @@ todayButton.addEventListener("click", () => {
   chirp("gold");
 });
 
+notificationButton.addEventListener("click", async () => {
+  const permission = await ensureNotificationPermission();
+  if (permission === "granted") {
+    notificationButton.textContent = "Notificaciones ON";
+    notifyNow("CCAACalendar listo", "Los recordatorios del navegador quedaron habilitados en este dispositivo.");
+    return;
+  }
+  notificationButton.textContent = permission === "denied" ? "Bloqueadas" : "No disponible";
+});
+
 eventForm.addEventListener("submit", async (event) => {
   event.preventDefault();
-  await createEventFromForm(new FormData(eventForm));
+  const formData = new FormData(eventForm);
+  setEventSaveStatus("Guardando evento local...", "neutral");
+  const createdEvent = await createEventFromForm(formData);
+  if (!createdEvent) {
+    setEventSaveStatus("No pudimos guardar el evento.", "warning");
+    return;
+  }
+
+  if (formData.get("browser_reminder")) {
+    const permission = await ensureNotificationPermission();
+    if (permission === "granted") {
+      scheduleBrowserReminder(createdEvent);
+      notifyNow("Recordatorio activado", `Seguiremos ${createdEvent.title} en este navegador.`);
+    }
+  }
+
+  if (formData.get("sync_google") && !String(createdEvent.id).startsWith("seed-")) {
+    const synced = await syncEventToGoogle(createdEvent.id);
+    setEventSaveStatus(
+      synced
+        ? "Evento guardado y sincronizado con Google Calendar."
+        : "Evento guardado localmente. La sincronizacion con Google quedo pendiente.",
+      synced ? "success" : "warning",
+    );
+  } else {
+    setEventSaveStatus("Evento guardado localmente.", "success");
+  }
+
+  await sendReminderEmail(createdEvent.id, formData);
   dialog.close();
   chirp("gold");
   render();

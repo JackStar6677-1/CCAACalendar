@@ -68,6 +68,14 @@ class EventRead(BaseModel):
     status: str
     starts_at: datetime
     ends_at: datetime
+    google_calendar_id: str | None
+    google_event_id: str | None
+
+
+class ReminderEmailRequest(BaseModel):
+    recipient_email: str = Field(min_length=5, max_length=254)
+    minutes_before: int = Field(default=60, ge=5, le=10080)
+    note: str = Field(default="", max_length=500)
 
 
 class AuthActivateRequest(BaseModel):

@@ -13,6 +13,11 @@ from ccaa_calendar.integrations.google_calendar import (
     insert_google_calendar_event,
     token_metadata,
 )
+from ccaa_calendar.integrations.google_gmail import (
+    GmailSendError,
+    GmailSendNotAuthorizedError,
+    send_event_reminder_email,
+)
 from ccaa_calendar.integrations.google_oauth import (
     GoogleOAuthNotConfiguredError,
     google_oauth_config_source,
@@ -24,6 +29,7 @@ from ccaa_calendar.integrations.google_oauth import (
     write_json,
 )
 from ccaa_calendar.models import Event
+from ccaa_calendar.schemas import ReminderEmailRequest
 from ccaa_calendar.settings import Settings, get_settings
 
 router = APIRouter(prefix="/api/integrations/google", tags=["integrations"])
@@ -38,6 +44,7 @@ def _mask_email(email: str) -> str:
 @router.get("/status")
 def google_status(settings: SettingsDep) -> dict[str, object]:
     token = token_metadata(settings)
+    token_scopes = token.get("scopes", [])
     return {
         "provider": "google",
         "mode": "center_calendar",
@@ -51,7 +58,8 @@ def google_status(settings: SettingsDep) -> dict[str, object]:
         "calendar_scope": settings.google_calendar_scopes,
         "gmail_scope": settings.google_gmail_scopes,
         "token_present": token["token_present"],
-        "token_scopes": token.get("scopes", []),
+        "token_scopes": token_scopes,
+        "gmail_authorized": settings.google_gmail_scopes in token_scopes,
         "internal_auth": "rut_password",
         "ready_to_connect": is_google_oauth_configured(settings)
         and bool(settings.google_center_account_email),
@@ -59,6 +67,37 @@ def google_status(settings: SettingsDep) -> dict[str, object]:
             "Google OAuth conecta solo el calendario oficial del centro.",
             "Cada administradora entra con su cuenta interna de CCAACalendar.",
         ],
+    }
+
+
+@router.post("/events/{event_id}/reminder-email")
+def send_google_reminder_email(
+    event_id: str,
+    payload: ReminderEmailRequest,
+    session: SessionDep,
+    settings: SettingsDep,
+) -> dict[str, object]:
+    event = session.get(Event, event_id)
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found.")
+
+    try:
+        message = send_event_reminder_email(
+            event,
+            settings,
+            recipient_email=payload.recipient_email,
+            minutes_before=payload.minutes_before,
+            note=payload.note,
+        )
+    except GmailSendNotAuthorizedError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except GmailSendError as exc:
+        raise HTTPException(status_code=502, detail=f"Gmail send failed: {exc}") from exc
+
+    return {
+        "mode": "sent",
+        "event_id": event.id,
+        "message_id": message.get("id"),
     }
 
 
@@ -156,6 +195,7 @@ def sync_google_event(
     return {
         "mode": "synced",
         "event_id": event.id,
+        "google_calendar_id": event.google_calendar_id,
         "google_event_id": event.google_event_id,
     }
 

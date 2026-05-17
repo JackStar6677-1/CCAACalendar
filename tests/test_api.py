@@ -1,11 +1,16 @@
 import json
 import uuid
+from datetime import UTC, datetime
 
 from ccaa_calendar.domain.admin_roster import load_admin_roster
 from ccaa_calendar.domain.rut import is_valid_rut, mask_rut, normalize_rut
-from ccaa_calendar.integrations.google_calendar import _is_calendar_event_allowed
+from ccaa_calendar.integrations.google_calendar import (
+    _is_calendar_event_allowed,
+    google_event_payload,
+)
 from ccaa_calendar.integrations.google_oauth import is_google_oauth_configured
 from ccaa_calendar.main import app
+from ccaa_calendar.models import Event
 from ccaa_calendar.settings import Settings, get_settings
 from fastapi.testclient import TestClient
 
@@ -168,7 +173,82 @@ def test_google_event_sync_preview_uses_calendar_payload() -> None:
     payload = sync_response.json()
     assert payload["mode"] == "dry_run"
     assert payload["payload"]["summary"] == "Asamblea sincronizable"
+    assert {"method": "popup", "minutes": 30} in payload["payload"]["reminders"]["overrides"]
+    assert {"method": "email", "minutes": 60} in payload["payload"]["reminders"]["overrides"]
     assert payload["payload"]["extendedProperties"]["private"]["ccaa_calendar_event_id"]
+
+
+def test_google_reminder_email_requires_gmail_scope(tmp_path) -> None:
+    token_path = tmp_path / "google_token.json"
+    token_path.write_text(
+        json.dumps(
+            {
+                "token": "fake-token",
+                "refresh_token": "fake-refresh",
+                "token_uri": "https://oauth2.googleapis.com/token",
+                "client_id": "fake-client",
+                "client_secret": "fake-secret",
+                "scopes": ["https://www.googleapis.com/auth/calendar.events"],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    settings = Settings(
+        database_url="sqlite:///:memory:",
+        google_token_path=str(token_path),
+        google_gmail_scopes="https://www.googleapis.com/auth/gmail.send",
+    )
+    app.dependency_overrides[get_settings] = lambda: settings
+    try:
+        with TestClient(app) as client:
+            organization = client.post(
+                "/api/organizations",
+                json={
+                    "name": f"Universidad Gmail {uuid.uuid4()}",
+                    "slug": f"universidad-gmail-{uuid.uuid4()}",
+                    "domain_hint": "gmail.example",
+                },
+            ).json()
+            created_event = client.post(
+                "/api/events",
+                json={
+                    "organization_id": organization["id"],
+                    "title": "Asamblea con correo",
+                    "category": "centro",
+                    "visibility": "organization",
+                    "starts_at": "2026-05-28T10:00:00-04:00",
+                    "ends_at": "2026-05-28T11:00:00-04:00",
+                    "description": "Evento para probar scope Gmail.",
+                },
+            ).json()
+            response = client.post(
+                f"/api/integrations/google/events/{created_event['id']}/reminder-email",
+                json={"recipient_email": "directiva@example.com"},
+            )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 409
+    assert "Gmail send scope is missing" in response.json()["detail"]
+
+
+def test_google_event_payload_includes_default_reminders() -> None:
+    payload = google_event_payload(
+        Event(
+            id="event-reminders",
+            organization_id="org-reminders",
+            title="Asamblea con recordatorios",
+            description="Prueba de recordatorios.",
+            category="centro",
+            visibility="organization",
+            starts_at=datetime(2026, 5, 28, 10, 0, tzinfo=UTC),
+            ends_at=datetime(2026, 5, 28, 11, 0, tzinfo=UTC),
+        )
+    )
+
+    assert payload["reminders"]["useDefault"] is False
+    assert len(payload["reminders"]["overrides"]) == 2
 
 
 def test_google_calendar_filter_skips_private_personal_event() -> None:

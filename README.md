@@ -191,14 +191,32 @@ https://ccaa.drakescraft.cl
 8. Mantener la app en **Testing** mientras desarrollamos.
 9. Agregar como test user la cuenta real que conectará el calendario del centro.
 
-10. Descargar el JSON OAuth solo en local y guardarlo como:
+10. Para sincronización y recordatorios, habilitar APIs en **Google Cloud > APIs y servicios > Biblioteca**:
+
+- **Google Calendar API**: necesaria para leer eventos, crear eventos y guardar recordatorios nativos del calendario.
+- **Gmail API**: solo si se usarán correos enviados por la app desde la cuenta oficial del centro.
+
+11. En la pantalla de consentimiento OAuth, mantener estos scopes mínimos:
+
+```text
+https://www.googleapis.com/auth/calendar.events
+https://www.googleapis.com/auth/gmail.send
+```
+
+El scope de Gmail debe pedirse solo cuando se active la función de correos. En desarrollo se usa:
+
+```text
+https://ccaa.drakescraft.cl/api/integrations/google/login?include_gmail=true
+```
+
+12. Descargar el JSON OAuth solo en local y guardarlo como:
 
 ```text
 .local/google_oauth_client_secret.json
 ```
 
-11. Copiar `client_id` y `client_secret` al `.env` local.
-12. Probar el flujo desde:
+13. Copiar `client_id` y `client_secret` al `.env` local.
+14. Probar el flujo desde:
 
 ```text
 http://127.0.0.1:8000/api/integrations/google/login
@@ -221,6 +239,9 @@ POST /api/auth/password-reset/request
 GET  /api/integrations/google/status
 GET  /api/integrations/google/login
 GET  /api/integrations/google/callback
+GET  /api/integrations/google/events
+POST /api/integrations/google/events/{event_id}/sync
+POST /api/integrations/google/events/{event_id}/reminder-email
 ```
 
 ## Rutas Web
@@ -242,12 +263,16 @@ GET  /api/integrations/google/callback
 - Calendario mensual más real.
 - Crear/editar eventos desde modal.
 - Conexión Google Calendar para cuenta oficial del centro.
+- Sincronizar eventos creados en la app hacia Google Calendar.
+- Recordatorios nativos de Google: popup 30 min antes y correo 60 min antes.
+- Notificaciones del navegador para recordatorios en el dispositivo.
+- Base Gmail API para correos manuales de recordatorio.
 - Persistencia segura de conexión por centro.
 
 ### Siguiente
 
-- Sincronizar eventos hacia Google Calendar.
 - Manejar refresh token y desconexión.
+- Programador de recordatorios en backend para envíos automáticos.
 - Filtros por centro, espacio y tipo de evento.
 - Gestión de administradoras.
 - Gestión de espacios y bloqueos.
