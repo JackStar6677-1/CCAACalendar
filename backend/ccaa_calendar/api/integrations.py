@@ -16,6 +16,7 @@ from ccaa_calendar.integrations.google_oauth import (
     google_oauth_config_source,
     is_google_oauth_configured,
     make_flow,
+    new_code_verifier,
     oauth_scopes,
     read_json,
     write_json,
@@ -65,7 +66,8 @@ def google_login(
     include_gmail: bool = Query(default=False),
 ) -> RedirectResponse:
     try:
-        flow = make_flow(settings, include_gmail=include_gmail)
+        code_verifier = new_code_verifier()
+        flow = make_flow(settings, include_gmail=include_gmail, code_verifier=code_verifier)
     except GoogleOAuthNotConfiguredError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
@@ -82,6 +84,7 @@ def google_login(
             "mode": "center_calendar",
             "account_email": settings.google_center_account_email,
             "calendar_id": settings.google_calendar_id,
+            "code_verifier": code_verifier,
             "scopes": oauth_scopes(settings, include_gmail),
         },
     )
@@ -141,10 +144,16 @@ def google_callback(request: Request, settings: SettingsDep) -> HTMLResponse:
         raise HTTPException(status_code=400, detail="Invalid Google OAuth state.")
 
     try:
-        flow = make_flow(settings, include_gmail=bool(expected.get("include_gmail")))
+        flow = make_flow(
+            settings,
+            include_gmail=bool(expected.get("include_gmail")),
+            code_verifier=str(expected.get("code_verifier", "")) or None,
+        )
         flow.fetch_token(authorization_response=str(request.url))
     except GoogleOAuthNotConfiguredError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except Exception as exc:
+        return _oauth_error_response(str(exc))
 
     credentials = flow.credentials
     write_json(
@@ -175,5 +184,26 @@ def google_callback(request: Request, settings: SettingsDep) -> HTMLResponse:
           </body>
         </html>
         """
+    )
+
+
+def _oauth_error_response(detail: str) -> HTMLResponse:
+    safe_detail = detail.replace("<", "&lt;").replace(">", "&gt;")
+    return HTMLResponse(
+        f"""
+        <!doctype html>
+        <html lang="es">
+          <head><meta charset="utf-8"><title>CCAACalendar OAuth</title></head>
+          <body style="font-family: system-ui; padding: 2rem; max-width: 760px;">
+            <h1>No se pudo conectar Google Calendar</h1>
+            <p>Vuelve a CCAACalendar y presiona nuevamente
+            <strong>Conectar Google del centro</strong>.
+            El enlace de Google solo sirve una vez y puede expirar si se abre dos veces.</p>
+            <p style="color:#8a2b2b;"><strong>Detalle tecnico:</strong> {safe_detail}</p>
+            <p><a href="/app">Volver a CCAACalendar</a></p>
+          </body>
+        </html>
+        """,
+        status_code=400,
     )
 

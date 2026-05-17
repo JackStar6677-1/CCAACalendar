@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import secrets
 from pathlib import Path
 from typing import Any
 
@@ -74,7 +75,15 @@ def oauth_scopes(settings: Settings, include_gmail: bool = False) -> list[str]:
     return [scope for scope in scopes if scope]
 
 
-def make_flow(settings: Settings, include_gmail: bool = False) -> Flow:
+def new_code_verifier() -> str:
+    return secrets.token_urlsafe(64)[:96]
+
+
+def make_flow(
+    settings: Settings,
+    include_gmail: bool = False,
+    code_verifier: str | None = None,
+) -> Flow:
     if settings.is_local:
         os.environ.setdefault("OAUTHLIB_INSECURE_TRANSPORT", "1")
 
@@ -82,6 +91,8 @@ def make_flow(settings: Settings, include_gmail: bool = False) -> Flow:
         google_client_config(settings),
         scopes=oauth_scopes(settings, include_gmail=include_gmail),
         redirect_uri=settings.google_redirect_uri,
+        code_verifier=code_verifier,
+        autogenerate_code_verifier=code_verifier is None,
     )
 
 

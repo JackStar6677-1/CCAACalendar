@@ -113,6 +113,29 @@ def test_google_oauth_can_use_local_client_secret_file(tmp_path) -> None:
     assert is_google_oauth_configured(settings)
 
 
+def test_google_login_persists_pkce_code_verifier(tmp_path) -> None:
+    state_path = tmp_path / "oauth_state.json"
+    settings = Settings(
+        google_client_id="demo-client-id.apps.googleusercontent.com",
+        google_client_secret="demo-client-secret",
+        google_oauth_state_path=str(state_path),
+        google_center_account_email="calendar-owner@example.com",
+    )
+    app.dependency_overrides[get_settings] = lambda: settings
+
+    try:
+        with TestClient(app) as client:
+            response = client.get("/api/integrations/google/login", follow_redirects=False)
+
+        assert response.status_code == 307
+        assert "code_challenge=" in response.headers["location"]
+        state = json.loads(state_path.read_text(encoding="utf-8"))
+        assert state["state"]
+        assert len(state["code_verifier"]) >= 43
+    finally:
+        app.dependency_overrides.clear()
+
+
 def test_google_event_sync_preview_uses_calendar_payload() -> None:
     with TestClient(app) as client:
         organization_response = client.post(

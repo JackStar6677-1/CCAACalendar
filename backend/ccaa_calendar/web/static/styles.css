@@ -853,7 +853,7 @@ nav {
 
 @media (max-width: 720px) {
   .shell {
-    padding: 0.8rem;
+    padding: 0.7rem;
   }
 
   .brand-panel {
@@ -878,16 +878,95 @@ nav {
     flex-direction: column;
   }
 
-  .weekdays {
+  .calendar-panel,
+  .agenda-panel {
+    padding: 0.75rem;
+    border-radius: 22px;
+  }
+
+  .panel-heading {
+    gap: 0.75rem;
+    flex-direction: column;
+  }
+
+  .calendar-legend {
+    display: flex;
+    width: 100%;
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    overflow-x: auto;
+    padding-bottom: 0.25rem;
+    scrollbar-width: none;
+  }
+
+  .calendar-legend::-webkit-scrollbar {
     display: none;
   }
 
+  .calendar-legend span {
+    flex: 0 0 auto;
+    padding: 0.42rem 0.62rem;
+    font-size: 0.74rem;
+  }
+
+  .weekdays {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 0.32rem;
+    margin-top: 0.75rem;
+    font-size: 0.66rem;
+    text-align: center;
+  }
+
   .calendar-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 0.32rem;
   }
 
   .calendar-day {
-    min-height: auto;
+    min-height: 4.7rem;
+    border-radius: 14px;
+    padding: 0.42rem;
+  }
+
+  .calendar-day:hover,
+  .calendar-day.today,
+  .calendar-day.is-holiday {
+    transform: none;
+  }
+
+  .date-number {
+    display: block;
+    font-size: 0.78rem;
+    text-align: left;
+  }
+
+  .date-number span:last-child {
+    display: none;
+  }
+
+  .event-pill {
+    min-height: 1.35rem;
+    margin-top: 0.28rem;
+    padding: 0.22rem 0.28rem;
+    border-radius: 8px;
+    font-size: 0.62rem;
+    line-height: 1.1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .holiday-ribbon {
+    margin-top: 0.28rem;
+    padding: 0.23rem 0.26rem;
+    border-radius: 8px;
+    font-size: 0.58rem;
+    white-space: normal;
+  }
+
+  .agenda-panel {
+    margin-bottom: 4.5rem;
   }
 
   nav {
