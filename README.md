@@ -97,15 +97,57 @@ Google Calendar queda como integración de calendario compartido, no como identi
 ## Arquitectura
 
 ```mermaid
-flowchart LR
-    Admin["Administradora<br/>RUT + clave"] --> Web["CCAACalendar PWA"]
-    Web --> API["FastAPI"]
-    API --> DB[("SQLite local<br/>PostgreSQL objetivo")]
-    API --> Audit["Auditoría"]
-    API --> Holidays["Feriados Chile"]
-    API --> OAuth["Google OAuth 2.0"]
-    OAuth --> Calendar["Google Calendar<br/>cuenta oficial del centro"]
-    Legacy["Castel Calendar legacy"] -.referencia.-> API
+flowchart TB
+    subgraph usuarias ["Integrantes del centro"]
+        Admin["Administradora\nRUT y clave propia"]
+    end
+
+    subgraph ccaa ["CCAACalendar"]
+        Web["PWA web / app"]
+        API["API FastAPI"]
+    end
+
+    subgraph persistencia ["Persistencia"]
+        DB[(SQLite hoy\nPostgreSQL después)]
+    end
+
+    subgraph modulos ["Módulos"]
+        Audit["Auditoría"]
+        Holidays["Feriados Chile"]
+        Mail["Correos HTML"]
+    end
+
+    subgraph gce ["Google del centro"]
+        OAuth["OAuth 2.0"]
+        Cal["Calendar y Gmail"]
+    end
+
+    Legacy["Castel legacy\nsolo referencia"]
+
+    Admin --> Web --> API
+    API --> DB
+    API --> Audit
+    API --> Holidays
+    API --> Mail
+    API --> OAuth --> Cal
+    Legacy -.->|ideas UI| API
+```
+
+### Flujo de identidad y correos
+
+```mermaid
+sequenceDiagram
+    participant I as Integrante
+    participant P as CCAACalendar
+    participant C as Cola de correos
+    participant G as Cuenta Google del CE
+
+    I->>P: Login con RUT
+    I->>P: Crear evento
+    P->>C: Confirmación y recordatorios
+    C->>G: Enviar plantilla HTML
+    G-->>I: Aviso al correo personal
+    Note over I,G: El correo del centro envía.\nLa bandeja personal solo recibe.
 ```
 
 ## Stack

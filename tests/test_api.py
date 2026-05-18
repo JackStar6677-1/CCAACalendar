@@ -760,3 +760,26 @@ def test_profile_notification_preference(tmp_path) -> None:
             assert updated.json()["email_notifications_enabled"] is not initial
     finally:
         app.dependency_overrides.clear()
+
+
+def test_email_template_renders_brand_html() -> None:
+    from ccaa_calendar.integrations.email_templates import render_email_html
+    from ccaa_calendar.settings import Settings
+
+    settings = Settings(app_public_url="https://example.test")
+    html = render_email_html(
+        settings,
+        preheader="Vista previa",
+        headline="Titulo <script>",
+        greeting="Hola",
+        paragraphs=["Parrafo con <em>html</em> escapado."],
+        highlight=("Evento", [("Inicio", "01/01/2026 10:00")], "#ff7a2f"),
+        cta=("https://example.test/app", "Abrir"),
+    )
+    assert "CCAACalendar" in html
+    assert "#ff7a2f" in html
+    assert "orbit-icon.svg" in html
+    assert "<svg " in html
+    assert "&lt;script&gt;" in html
+    assert "<script>" not in html
+    assert "Calendario institucional del centro" in html
