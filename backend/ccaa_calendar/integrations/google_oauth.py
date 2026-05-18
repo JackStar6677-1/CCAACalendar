@@ -86,6 +86,7 @@ def make_flow(
 ) -> Flow:
     if settings.is_local:
         os.environ.setdefault("OAUTHLIB_INSECURE_TRANSPORT", "1")
+    os.environ.setdefault("OAUTHLIB_RELAX_TOKEN_SCOPE", "1")
 
     return Flow.from_client_config(
         google_client_config(settings),

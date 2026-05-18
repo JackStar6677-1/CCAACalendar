@@ -29,6 +29,7 @@ from ccaa_calendar.integrations.google_oauth import (
     write_json,
 )
 from ccaa_calendar.models import Event
+from ccaa_calendar.observability import write_app_log
 from ccaa_calendar.schemas import ReminderEmailRequest
 from ccaa_calendar.settings import Settings, get_settings
 
@@ -129,6 +130,15 @@ def google_login(
             "scopes": oauth_scopes(settings, include_gmail),
         },
     )
+    write_app_log(
+        settings,
+        "google.oauth.login_started",
+        {
+            "include_gmail": include_gmail,
+            "calendar_id": settings.google_calendar_id,
+            "scopes": oauth_scopes(settings, include_gmail),
+        },
+    )
     return RedirectResponse(authorization_url)
 
 
@@ -217,9 +227,20 @@ def google_callback(request: Request, settings: SettingsDep) -> HTMLResponse:
     except GoogleOAuthNotConfiguredError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     except Exception as exc:
+        write_app_log(
+            settings,
+            "google.oauth.callback_failed",
+            {
+                "include_gmail": bool(expected.get("include_gmail")),
+                "expected_scopes": expected.get("scopes", []),
+                "error_type": type(exc).__name__,
+                "error": str(exc),
+            },
+        )
         return _oauth_error_response(str(exc))
 
     credentials = flow.credentials
+    granted_scopes = list(credentials.scopes or expected.get("scopes", []))
     write_json(
         settings.google_token_path,
         {
@@ -228,10 +249,19 @@ def google_callback(request: Request, settings: SettingsDep) -> HTMLResponse:
             "token_uri": credentials.token_uri,
             "client_id": credentials.client_id,
             "client_secret": credentials.client_secret,
-            "scopes": list(credentials.scopes or []),
+            "scopes": granted_scopes,
             "mode": "center_calendar",
             "account_email": expected.get("account_email", settings.google_center_account_email),
             "calendar_id": expected.get("calendar_id", settings.google_calendar_id),
+        },
+    )
+    write_app_log(
+        settings,
+        "google.oauth.connected",
+        {
+            "include_gmail": bool(expected.get("include_gmail")),
+            "calendar_id": expected.get("calendar_id", settings.google_calendar_id),
+            "scopes": granted_scopes,
         },
     )
 

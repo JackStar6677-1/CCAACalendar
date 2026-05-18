@@ -5,8 +5,18 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from ccaa_calendar.api import auth, centers, events, health, holidays, integrations, organizations
+from ccaa_calendar.api import (
+    auth,
+    centers,
+    diagnostics,
+    events,
+    health,
+    holidays,
+    integrations,
+    organizations,
+)
 from ccaa_calendar.database import init_database
+from ccaa_calendar.observability import RequestLogMiddleware
 from ccaa_calendar.settings import get_settings
 from ccaa_calendar.web import STATIC_DIR
 from ccaa_calendar.web import router as web_router
@@ -29,11 +39,13 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+    app.add_middleware(RequestLogMiddleware, settings=settings)
 
     app.mount("/assets", StaticFiles(directory=STATIC_DIR), name="assets")
     app.include_router(web_router)
     app.include_router(auth.router)
     app.include_router(health.router)
+    app.include_router(diagnostics.router)
     app.include_router(organizations.router)
     app.include_router(centers.router)
     app.include_router(events.router)

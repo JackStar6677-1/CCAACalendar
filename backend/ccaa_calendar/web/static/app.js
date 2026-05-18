@@ -33,6 +33,7 @@ let gmailAuthorized = false;
 let calendarCursor = new Date();
 calendarCursor = new Date(calendarCursor.getFullYear(), calendarCursor.getMonth(), 1);
 let selectedDate = dateKey(new Date());
+let missionStripKey = "";
 
 const PLACEHOLDER_TITLES = new Set([
   "reunion centro de estudiantes",
@@ -43,6 +44,7 @@ const PLACEHOLDER_TITLES = new Set([
 
 let events = [];
 let holidays = [];
+const nativeFetch = window.fetch.bind(window);
 
 const fallbackConfig = {
   modules: [
@@ -96,7 +98,12 @@ function chirp(type = "soft") {
 function openApp() {
   shell.dataset.screen = "app";
   chirp("gold");
+  renderMissionStrip();
   render();
+  scheduleIdle(() => {
+    hydrateFromApi();
+    hydrateGoogleStatus().then(() => scheduleIdle(hydrateGoogleEvents));
+  });
 }
 
 function setEventSaveStatus(message, tone = "neutral") {
@@ -122,6 +129,55 @@ function uniqueEvents(items) {
   return items
     .filter((event) => !isPlaceholderEvent(event))
     .filter((event, index, list) => list.findIndex((item) => item.id === event.id) === index);
+}
+
+function isAppOpen() {
+  return shell.dataset.screen === "app";
+}
+
+function scheduleIdle(callback) {
+  if ("requestIdleCallback" in window) {
+    window.requestIdleCallback(callback, { timeout: 1800 });
+    return;
+  }
+  window.setTimeout(callback, 160);
+}
+
+function reportClientIssue(kind, message, metadata = {}, stack = "") {
+  const payload = {
+    kind,
+    message: String(message || "Client issue").slice(0, 800),
+    source: "browser",
+    path: window.location.pathname,
+    stack: String(stack || "").slice(0, 1600),
+    metadata,
+  };
+  const body = JSON.stringify(payload);
+  if (navigator.sendBeacon) {
+    navigator.sendBeacon("/api/diagnostics/client-error", new Blob([body], { type: "application/json" }));
+    return;
+  }
+  nativeFetch("/api/diagnostics/client-error", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body,
+    keepalive: true,
+  }).catch(() => {});
+}
+
+async function trackedFetch(resource, options) {
+  const started = performance.now();
+  const response = await nativeFetch(resource, options);
+  const durationMs = Math.round(performance.now() - started);
+  const url = typeof resource === "string" ? resource : resource.url;
+  if (response.status >= 400 || durationMs > 1500) {
+    reportClientIssue("client.fetch", `Fetch ${response.status} ${url}`, {
+      url,
+      status: response.status,
+      duration_ms: durationMs,
+    });
+  }
+  return response;
 }
 
 function eventDate(event) {
@@ -245,6 +301,15 @@ function holidayForDay(day) {
 }
 
 function renderCalendar() {
+  const eventsByDay = new Map();
+  events.forEach((event) => {
+    const key = dateKey(eventDate(event));
+    const bucket = eventsByDay.get(key) || [];
+    bucket.push(event);
+    eventsByDay.set(key, bucket);
+  });
+  eventsByDay.forEach((bucket) => bucket.sort((a, b) => eventDate(a) - eventDate(b)));
+
   calendarGrid.replaceChildren();
   const today = new Date();
   calendarTitle.textContent = calendarCursor.toLocaleDateString("es-CL", {
@@ -257,7 +322,7 @@ function renderCalendar() {
     dayCard.className = "calendar-day";
     const holiday = holidayForDay(day);
     const key = dateKey(day);
-    const dayEvents = eventsForDay(day).toSorted((a, b) => eventDate(a) - eventDate(b));
+    const dayEvents = eventsByDay.get(key) || [];
     const visibleEvents = dayEvents.slice(0, 3);
     const hiddenCount = Math.max(0, dayEvents.length - visibleEvents.length);
     if (day.getMonth() !== calendarCursor.getMonth()) dayCard.classList.add("is-muted");
@@ -415,13 +480,15 @@ function render() {
     events.filter((event) => dateKey(eventDate(event)).startsWith(visibleMonth)).length,
   );
   metricHolidays.textContent = String(holidays.filter((holiday) => holiday.is_irrenunciable).length);
-  renderMissionStrip();
   renderCalendar();
   renderAgenda();
 }
 
 function renderMissionStrip() {
   const modules = orbitConfig?.modules || fallbackConfig.modules;
+  const nextKey = JSON.stringify(modules);
+  if (nextKey === missionStripKey) return;
+  missionStripKey = nextKey;
   const syncCard = missionStrip.querySelector(".sync-card");
   missionStrip.replaceChildren(syncCard);
 
@@ -442,17 +509,17 @@ function renderMissionStrip() {
 
 async function hydrateOrbitConfig() {
   try {
-    const response = await fetch("/assets/ccaa-calendar.config.json");
+    const response = await trackedFetch("/assets/ccaa-calendar.config.json");
     orbitConfig = response.ok ? await response.json() : fallbackConfig;
   } catch {
     orbitConfig = fallbackConfig;
   }
-  render();
+  renderMissionStrip();
 }
 
 async function hydrateGoogleStatus() {
   try {
-    const response = await fetch("/api/integrations/google/status");
+    const response = await trackedFetch("/api/integrations/google/status");
     if (!response.ok) return;
     const status = await response.json();
     googleConnected = Boolean(status.token_present);
@@ -472,7 +539,7 @@ async function hydrateGoogleStatus() {
 
 async function hydrateGoogleEvents() {
   try {
-    const response = await fetch("/api/integrations/google/events?max_results=50");
+    const response = await trackedFetch("/api/integrations/google/events?max_results=50");
     if (!response.ok) return;
     const payload = await response.json();
     if (!payload.connected) return;
@@ -482,7 +549,7 @@ async function hydrateGoogleEvents() {
       events = uniqueEvents([...googleEvents, ...events]);
       googleStatusBadge.textContent = "Google sincronizado";
       googleStatusDetail.textContent = `${googleEvents.length} eventos del calendario oficial cargados en la vista.`;
-      render();
+      if (isAppOpen()) render();
       return;
     }
 
@@ -495,22 +562,22 @@ async function hydrateGoogleEvents() {
 
 async function hydrateHolidays() {
   try {
-    const response = await fetch("/api/holidays?year=2026");
+    const response = await trackedFetch("/api/holidays?year=2026");
     if (!response.ok) return;
     holidays = await response.json();
-    render();
+    if (isAppOpen()) render();
   } catch {
-    render();
+    if (isAppOpen()) render();
   }
 }
 
 async function ensurePrimaryOrganization() {
-  const response = await fetch("/api/organizations");
+  const response = await trackedFetch("/api/organizations");
   const organizations = response.ok ? await response.json() : [];
   const existing = organizations.find((item) => item.slug === "ccaa-psicologia");
   if (existing) return existing.id;
 
-  const created = await fetch("/api/organizations", {
+  const created = await trackedFetch("/api/organizations", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -529,16 +596,16 @@ async function hydrateFromApi() {
     organizationId = await ensurePrimaryOrganization();
     if (!organizationId) return;
 
-    const response = await fetch(`/api/events?organization_id=${organizationId}`);
+    const response = await trackedFetch(`/api/events?organization_id=${organizationId}`);
     if (!response.ok) return;
 
     const apiEvents = await response.json();
     if (apiEvents.length > 0) {
       events = uniqueEvents([...apiEvents, ...events]);
-      render();
+      if (isAppOpen()) render();
     }
   } catch {
-    render();
+    if (isAppOpen()) render();
   }
 }
 
@@ -553,7 +620,7 @@ async function createEventFromForm(formData) {
   };
 
   if (organizationId) {
-    const response = await fetch("/api/events", {
+    const response = await trackedFetch("/api/events", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -581,7 +648,7 @@ async function createEventFromForm(formData) {
 async function syncEventToGoogle(eventId) {
   googleStatusBadge.textContent = "Sincronizando...";
   googleStatusDetail.textContent = "Enviando evento local al calendario oficial de Google.";
-  const response = await fetch(
+  const response = await trackedFetch(
     `/api/integrations/google/events/${eventId}/sync?dry_run=false&confirm=sync-google-calendar`,
     { method: "POST" },
   );
@@ -613,7 +680,7 @@ async function sendReminderEmail(eventId, formData) {
   const recipientEmail = String(formData.get("reminder_email") || "").trim();
   if (!recipientEmail) return;
 
-  const response = await fetch(`/api/integrations/google/events/${eventId}/reminder-email`, {
+  const response = await trackedFetch(`/api/integrations/google/events/${eventId}/reminder-email`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -648,7 +715,7 @@ loginForm.addEventListener("submit", async (event) => {
 
   setLoginStatus("Verificando acceso orbital...", "neutral");
   try {
-    const response = await fetch("/api/auth/login", {
+    const response = await trackedFetch("/api/auth/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ rut, password }),
@@ -775,8 +842,24 @@ if ("serviceWorker" in navigator) {
   });
 }
 
-render();
+window.addEventListener("error", (event) => {
+  reportClientIssue(
+    "client.error",
+    event.message,
+    { filename: event.filename, line: event.lineno, column: event.colno },
+    event.error?.stack || "",
+  );
+});
+
+window.addEventListener("unhandledrejection", (event) => {
+  reportClientIssue(
+    "client.unhandledrejection",
+    event.reason?.message || event.reason || "Unhandled promise rejection",
+    {},
+    event.reason?.stack || "",
+  );
+});
+
 hydrateOrbitConfig();
 hydrateHolidays();
-hydrateFromApi();
-hydrateGoogleStatus().then(hydrateGoogleEvents);
+hydrateGoogleStatus();

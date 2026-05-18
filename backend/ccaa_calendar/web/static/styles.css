@@ -14,6 +14,7 @@
   --gold: #ffd166;
   --green: #81e6c3;
   --shadow: 0 24px 80px rgba(0, 0, 0, 0.38);
+  --glass-blur: 12px;
   --radius-xl: 34px;
   --radius-lg: 24px;
   --radius-md: 16px;
@@ -52,8 +53,8 @@ button {
 .ambient {
   position: fixed;
   z-index: -1;
-  filter: blur(18px);
-  opacity: 0.55;
+  filter: blur(8px);
+  opacity: 0.38;
   pointer-events: none;
 }
 
@@ -100,7 +101,7 @@ button {
   border: 1px solid var(--line);
   background: var(--panel);
   box-shadow: var(--shadow);
-  backdrop-filter: blur(22px);
+  backdrop-filter: blur(var(--glass-blur));
 }
 
 .brand-panel {
@@ -485,6 +486,7 @@ nav {
     linear-gradient(145deg, rgba(255, 122, 47, 0.09), rgba(143, 92, 255, 0.12)),
     rgba(255, 255, 255, 0.052);
   animation: rise-in 420ms ease both;
+  contain: layout paint;
 }
 
 .mission-card::after {
@@ -622,6 +624,7 @@ nav {
 
 .calendar-day {
   position: relative;
+  contain: layout paint;
   overflow: hidden;
   min-height: 7.8rem;
   border: 1px solid rgba(255, 255, 255, 0.1);
@@ -757,6 +760,7 @@ nav {
   padding: 0.9rem;
   background: rgba(255, 255, 255, 0.055);
   animation: rise-in 420ms ease both;
+  contain: layout paint;
 }
 
 .agenda-empty {
@@ -908,7 +912,7 @@ nav {
 
 .event-dialog::backdrop {
   background: rgba(10, 6, 16, 0.72);
-  backdrop-filter: blur(8px);
+  backdrop-filter: blur(4px);
 }
 
 .split-fields {
@@ -974,6 +978,41 @@ nav {
 }
 
 @media (max-width: 720px) {
+  :root {
+    --shadow: 0 14px 32px rgba(0, 0, 0, 0.28);
+    --glass-blur: 0;
+  }
+
+  .ambient {
+    display: none;
+  }
+
+  .brand-panel,
+  .login-card,
+  .sidebar,
+  .calendar-panel,
+  .agenda-panel,
+  .event-dialog {
+    backdrop-filter: none;
+  }
+
+  .brand-panel::before,
+  .brand-panel::after,
+  .mission-card::after {
+    display: none;
+  }
+
+  .orbit-mark span {
+    animation: none;
+  }
+
+  .login-view,
+  .shell[data-screen="app"] .app-view,
+  .mission-card,
+  .agenda-item {
+    animation: none;
+  }
+
   .shell {
     padding: 0.7rem;
   }

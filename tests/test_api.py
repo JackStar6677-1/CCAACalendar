@@ -1,4 +1,5 @@
 import json
+import os
 import uuid
 from datetime import UTC, datetime
 
@@ -8,7 +9,7 @@ from ccaa_calendar.integrations.google_calendar import (
     _is_calendar_event_allowed,
     google_event_payload,
 )
-from ccaa_calendar.integrations.google_oauth import is_google_oauth_configured
+from ccaa_calendar.integrations.google_oauth import is_google_oauth_configured, make_flow
 from ccaa_calendar.main import app
 from ccaa_calendar.models import Event
 from ccaa_calendar.settings import Settings, get_settings
@@ -117,6 +118,52 @@ def test_google_oauth_can_use_local_client_secret_file(tmp_path) -> None:
     )
 
     assert is_google_oauth_configured(settings)
+
+
+def test_google_oauth_relaxes_scope_expansion(tmp_path) -> None:
+    secret_file = tmp_path / "client_secret.json"
+    secret_file.write_text(
+        json.dumps(
+            {
+                "web": {
+                    "client_id": "demo-client-id.apps.googleusercontent.com",
+                    "client_secret": "demo-client-secret",
+                    "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+                    "token_uri": "https://oauth2.googleapis.com/token",
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    settings = Settings(google_client_secret_file=str(secret_file))
+
+    make_flow(settings, include_gmail=True, code_verifier="a" * 64)
+
+    assert os.environ["OAUTHLIB_RELAX_TOKEN_SCOPE"] == "1"
+
+
+def test_client_error_report_writes_local_log(tmp_path) -> None:
+    log_path = tmp_path / "ccaa-calendar.jsonl"
+    settings = Settings(database_url="sqlite:///:memory:", app_log_path=str(log_path))
+    app.dependency_overrides[get_settings] = lambda: settings
+    try:
+        with TestClient(app) as client:
+            response = client.post(
+                "/api/diagnostics/client-error",
+                json={
+                    "kind": "client.error",
+                    "message": "Example browser failure",
+                    "stack": "token=secret should be shortened",
+                    "metadata": {"token": "fake-redaction-value", "component": "calendar"},
+                },
+            )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 202
+    line = json.loads(log_path.read_text(encoding="utf-8").splitlines()[0])
+    assert line["event"] == "client.error"
+    assert line["metadata"]["token"] == "[redacted]"
 
 
 def test_google_login_persists_pkce_code_verifier(tmp_path) -> None:

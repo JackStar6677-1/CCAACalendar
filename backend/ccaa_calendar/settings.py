@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     google_token_path: str = ".local/google_token.json"
     admin_roster_path: str = ".local/admin_roster.json"
     admin_identity_pepper: str = "change-this-local-secret"
+    app_log_path: str = ".local/logs/ccaa-calendar.jsonl"
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
