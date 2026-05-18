@@ -301,6 +301,7 @@ flowchart LR
         L1[PostgreSQL en VPS]
         L2[Multi-org completa]
         L3[Word PDF Excel]
+        L4[RLS + storage privado]
     end
 
     D4 --> S1
@@ -311,7 +312,7 @@ flowchart LR
     classDef cLater fill:#3d2460,stroke:#8f5cff,color:#fff7e8
     class D1,D2,D3,D4 cDone
     class S1,S2,S3,S4 cSoon
-    class L1,L2,L3 cLater
+    class L1,L2,L3,L4 cLater
 ```
 
 ## Stack
@@ -433,6 +434,7 @@ Paleta: naranjo `#ff7a2f` · violeta `#8f5cff` · dorado `#ffd166` · fondo `#16
 - [`docs/estrategia-google-sin-dominio.md`](docs/estrategia-google-sin-dominio.md)
 - [`docs/identidad-admin-rut.md`](docs/identidad-admin-rut.md)
 - [`docs/diseno-calendario-multiusuario-y-bloqueos.md`](docs/diseno-calendario-multiusuario-y-bloqueos.md)
+- [`docs/evaluacion-insforge.md`](docs/evaluacion-insforge.md)
 
 ## Licencia
 
