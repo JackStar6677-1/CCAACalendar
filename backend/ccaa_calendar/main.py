@@ -1,3 +1,4 @@
+import asyncio
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
@@ -22,12 +23,17 @@ from ccaa_calendar.observability import RequestLogMiddleware
 from ccaa_calendar.settings import get_settings
 from ccaa_calendar.web import STATIC_DIR
 from ccaa_calendar.web import router as web_router
+from ccaa_calendar.workers.email_scheduler import run_email_worker
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     init_database()
+    stop_event = asyncio.Event()
+    worker_task = asyncio.create_task(run_email_worker(stop_event))
     yield
+    stop_event.set()
+    await worker_task
 
 
 def create_app() -> FastAPI:

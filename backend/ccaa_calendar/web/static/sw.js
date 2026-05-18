@@ -1,12 +1,11 @@
-const CACHE_NAME = "ccaa-calendar-pwa-v11";
+const CACHE_NAME = "ccaa-calendar-pwa-v15";
 const STATIC_ASSETS = [
   "/",
   "/offline",
   "/manifest.webmanifest",
-  "/assets/styles.css?v=11",
-  "/assets/app.js?v=11",
+  "/assets/styles.css?v=14",
+  "/assets/app.js?v=16",
   "/assets/orbit-icon.svg",
-  "/assets/orbit-rings.svg",
   "/assets/ccaa-calendar.config.json",
 ];
 
@@ -26,6 +25,18 @@ self.addEventListener("activate", (event) => {
       .keys()
       .then((keys) => Promise.all(keys.map((key) => (key === CACHE_NAME ? null : caches.delete(key)))))
       .then(() => self.clients.claim()),
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
+      if (clients.length > 0) {
+        return clients[0].focus();
+      }
+      return self.clients.openWindow("/");
+    }),
   );
 });
 
@@ -57,4 +68,3 @@ self.addEventListener("fetch", (event) => {
       .catch(() => caches.match(request).then((cached) => cached || caches.match("/assets/orbit-icon.svg"))),
   );
 });
-

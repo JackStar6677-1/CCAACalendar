@@ -1,5 +1,20 @@
 const shell = document.querySelector(".shell");
+const lookupForm = document.querySelector("#lookup-form");
 const loginForm = document.querySelector("#login-form");
+const activateForm = document.querySelector("#activate-form");
+const resetConfirmForm = document.querySelector("#reset-confirm-form");
+const authStepReset = document.querySelector("#auth-step-reset");
+const authPanel = document.querySelector("#auth-panel");
+const authStepLookup = document.querySelector("#auth-step-lookup");
+const authStepLogin = document.querySelector("#auth-step-login");
+const authStepActivate = document.querySelector("#auth-step-activate");
+const authStepBlocked = document.querySelector("#auth-step-blocked");
+const loginRutSummary = document.querySelector("#login-rut-summary");
+const activateRutSummary = document.querySelector("#activate-rut-summary");
+const blockedMessage = document.querySelector("#blocked-message");
+const passwordResetButton = document.querySelector("#password-reset-button");
+const bootstrapOfficialEmail = document.querySelector("#bootstrap-official-email");
+const bootstrapOfficialDetail = document.querySelector("#bootstrap-official-detail");
 const demoButton = document.querySelector("#demo-button");
 const loginStatus = document.querySelector("#login-status");
 const soundToggle = document.querySelector("#sound-toggle");
@@ -34,12 +49,17 @@ const reservationForm = document.querySelector("#reservation-form");
 const reservationSaveStatus = document.querySelector("#reservation-save-status");
 const reservationSpaceSelect = document.querySelector("#reservation-space-select");
 const reservationList = document.querySelector("#reservation-list");
+const profileSummary = document.querySelector("#profile-summary");
+const profileEmailNotifications = document.querySelector("#profile-email-notifications");
+const profileEmailStatus = document.querySelector("#profile-email-status");
+const profileSaveButton = document.querySelector("#profile-save-button");
 
 let soundEnabled = false;
 let audioContext;
 let organizationId;
 let deferredInstallPrompt;
 let authSession;
+let authLookupContext = null;
 let orbitConfig;
 let googleConnected = false;
 let gmailAuthorized = false;
@@ -113,13 +133,14 @@ function chirp(type = "soft") {
 
 function openApp() {
   shell.dataset.screen = "app";
-  chirp("gold");
   switchView(currentView);
-  renderMissionStrip();
+  syncNotificationButtonState();
   render();
   scheduleIdle(() => {
     hydrateFromApi();
-    hydrateGoogleStatus().then(() => scheduleIdle(hydrateGoogleEvents));
+    hydrateGoogleStatus().then(() => {
+      if (googleConnected) scheduleIdle(hydrateGoogleEvents);
+    });
   });
 }
 
@@ -139,6 +160,9 @@ function switchView(view) {
       prepareReservationForm();
     }
     hydrateSpaces();
+  }
+  if (view === "profile") {
+    hydrateProfile();
   }
 }
 
@@ -253,8 +277,29 @@ function formatTime(event) {
   })}`;
 }
 
+const REMINDER_STORAGE_KEY = "ccaa-calendar-reminders";
+const REMINDER_CHECK_MS = 30_000;
+let reminderWatcherId = null;
+
 function canUseNotifications() {
   return "Notification" in window;
+}
+
+function hasNotificationPermission() {
+  return canUseNotifications() && Notification.permission === "granted";
+}
+
+function loadStoredReminders() {
+  try {
+    const raw = localStorage.getItem(REMINDER_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveStoredReminders(reminders) {
+  localStorage.setItem(REMINDER_STORAGE_KEY, JSON.stringify(reminders));
 }
 
 function formatDateTime(raw) {
@@ -274,23 +319,125 @@ async function ensureNotificationPermission() {
   return Notification.requestPermission();
 }
 
-function notifyNow(title, body) {
-  if (!canUseNotifications() || Notification.permission !== "granted") return;
-  new Notification(title, {
-    body,
+async function notifyNow(title, body) {
+  if (!hasNotificationPermission()) return false;
+
+  const options = {
+    body: String(body || "").slice(0, 240),
     icon: "/assets/orbit-icon.svg",
+    badge: "/assets/orbit-icon.svg",
     tag: "ccaa-calendar-reminder",
-  });
+    renotify: true,
+  };
+
+  try {
+    if ("serviceWorker" in navigator) {
+      const registration = await navigator.serviceWorker.ready;
+      if (registration?.showNotification) {
+        await registration.showNotification(title, options);
+        return true;
+      }
+    }
+    new Notification(title, options);
+    return true;
+  } catch (error) {
+    reportClientIssue("client.notification", error?.message || error, {}, error?.stack || "");
+    return false;
+  }
 }
 
-function scheduleBrowserReminder(event) {
+function syncNotificationButtonState() {
+  if (!notificationButton) return;
+  if (!canUseNotifications()) {
+    notificationButton.textContent = "No soportado";
+    notificationButton.title = "Este navegador no expone Notification API.";
+    return;
+  }
+  if (Notification.permission === "granted") {
+    notificationButton.textContent = "Alertas ON";
+    notificationButton.title = "Recordatorios activos en este dispositivo.";
+    startReminderWatcher();
+    return;
+  }
+  if (Notification.permission === "denied") {
+    notificationButton.textContent = "Bloqueadas";
+    notificationButton.title = "Habilita notificaciones en ajustes del navegador para este sitio.";
+    stopReminderWatcher();
+    return;
+  }
+  notificationButton.textContent = "Activar alertas";
+  notificationButton.title = "Permite notificaciones para avisos de eventos.";
+}
+
+function stopReminderWatcher() {
+  if (reminderWatcherId !== null) {
+    window.clearInterval(reminderWatcherId);
+    reminderWatcherId = null;
+  }
+}
+
+async function processDueReminders() {
+  if (!hasNotificationPermission()) return;
+
+  const now = Date.now();
+  const reminders = loadStoredReminders();
+  const stillPending = [];
+
+  for (const reminder of reminders) {
+    if (reminder.fireAt <= now) {
+      if (now - reminder.fireAt > 10 * 60 * 1000) {
+        continue;
+      }
+      const minutes = reminder.minutesBefore || 30;
+      await notifyNow(
+        `CCAACalendar: ${reminder.title}`,
+        `Empieza en ${minutes} minutos. ${reminder.description || ""}`.trim(),
+      );
+      continue;
+    }
+    stillPending.push(reminder);
+  }
+
+  if (stillPending.length !== reminders.length) {
+    saveStoredReminders(stillPending);
+  }
+}
+
+function startReminderWatcher() {
+  if (!hasNotificationPermission()) return;
+  if (reminderWatcherId !== null) return;
+  processDueReminders();
+  reminderWatcherId = window.setInterval(() => {
+    processDueReminders();
+  }, REMINDER_CHECK_MS);
+}
+
+function addBrowserReminder(event, minutesBefore = 30) {
   const startsAt = eventDate(event).getTime();
-  const reminderAt = startsAt - 30 * 60 * 1000;
-  const delay = reminderAt - Date.now();
-  if (delay <= 0 || delay > 24 * 60 * 60 * 1000) return;
-  window.setTimeout(() => {
-    notifyNow(`CCAACalendar: ${event.title}`, `Empieza en 30 minutos. ${event.description || ""}`);
-  }, delay);
+  if (Number.isNaN(startsAt)) return false;
+
+  const fireAt = startsAt - minutesBefore * 60 * 1000;
+  if (fireAt <= Date.now()) {
+    return false;
+  }
+
+  const eventId = String(event.id || crypto.randomUUID());
+  const reminders = loadStoredReminders().filter((item) => item.eventId !== eventId);
+  reminders.push({
+    id: crypto.randomUUID(),
+    eventId,
+    title: event.title || "Evento",
+    description: event.description || "",
+    fireAt,
+    minutesBefore,
+  });
+  saveStoredReminders(reminders);
+  startReminderWatcher();
+  return true;
+}
+
+function scheduleBrowserReminder(event, minutesBefore = 30) {
+  return addBrowserReminder(event, minutesBefore);
 }
 
 function toDateTimeLocalValue(date) {
@@ -366,7 +513,7 @@ function renderCalendar() {
   });
   eventsByDay.forEach((bucket) => bucket.sort((a, b) => eventDate(a) - eventDate(b)));
 
-  calendarGrid.replaceChildren();
+  const fragment = document.createDocumentFragment();
   const today = new Date();
   calendarTitle.textContent = calendarCursor.toLocaleDateString("es-CL", {
     month: "long",
@@ -394,7 +541,6 @@ function renderCalendar() {
     }
     dayCard.addEventListener("click", () => {
       selectedDate = key;
-      chirp(dayEvents.length > 0 ? "gold" : "soft");
       render();
     });
 
@@ -428,7 +574,6 @@ function renderCalendar() {
       pill.addEventListener("click", (clickEvent) => {
         clickEvent.stopPropagation();
         selectedDate = key;
-        chirp(event.category === "espacio" ? "gold" : "soft");
         render();
       });
       dayCard.append(pill);
@@ -442,14 +587,14 @@ function renderCalendar() {
       more.addEventListener("click", (clickEvent) => {
         clickEvent.stopPropagation();
         selectedDate = key;
-        chirp("gold");
         render();
       });
       dayCard.append(more);
     }
 
-    calendarGrid.append(dayCard);
+    fragment.append(dayCard);
   });
+  calendarGrid.replaceChildren(fragment);
 }
 
 function renderAgenda() {
@@ -493,7 +638,6 @@ function renderAgenda() {
     .forEach((event, index) => {
       const item = document.createElement("article");
       item.className = `agenda-item ${event.category === "holiday" ? "holiday" : normalizeCategory(event.category)}`;
-      item.style.animationDelay = `${index * 45}ms`;
       item.innerHTML = `
         <strong>${event.title}</strong>
         <span>${formatTime(event)}</span>
@@ -519,8 +663,21 @@ function renderAgenda() {
         reminderButton.textContent = "Probar notificacion";
         reminderButton.addEventListener("click", async () => {
           const permission = await ensureNotificationPermission();
-          if (permission === "granted") {
-            notifyNow(`CCAACalendar: ${event.title}`, `Recordatorio de prueba para ${formatTime(event)}.`);
+          syncNotificationButtonState();
+          if (permission !== "granted") {
+            window.alert(
+              permission === "denied"
+                ? "Las notificaciones estan bloqueadas. En Chrome: candado junto a la URL > Notificaciones > Permitir."
+                : "No se otorgo permiso para notificaciones.",
+            );
+            return;
+          }
+          const ok = await notifyNow(
+            `CCAACalendar: ${event.title}`,
+            `Prueba de alerta · ${formatTime(event)}`,
+          );
+          if (!ok) {
+            window.alert("No se pudo mostrar la notificacion en este dispositivo.");
           }
         });
         actions.append(reminderButton);
@@ -541,26 +698,7 @@ function render() {
 }
 
 function renderMissionStrip() {
-  const modules = orbitConfig?.modules || fallbackConfig.modules;
-  const nextKey = JSON.stringify(modules);
-  if (nextKey === missionStripKey) return;
-  missionStripKey = nextKey;
-  const syncCard = missionStrip.querySelector(".sync-card");
-  missionStrip.replaceChildren(syncCard);
-
-  modules
-    .filter((module) => module.id !== "google")
-    .forEach((module, index) => {
-      const card = document.createElement("article");
-      card.className = `mission-card module-${module.id}`;
-      card.style.animationDelay = `${index * 70}ms`;
-      card.innerHTML = `
-        <span class="eyebrow">${module.label}</span>
-        <strong>${module.status}</strong>
-        <p>${module.detail}</p>
-      `;
-      missionStrip.append(card);
-    });
+  /* Tarjetas de modulo deshabilitadas: estado compacto en .status-bar */
 }
 
 async function hydrateOrbitConfig() {
@@ -570,7 +708,6 @@ async function hydrateOrbitConfig() {
   } catch {
     orbitConfig = fallbackConfig;
   }
-  renderMissionStrip();
 }
 
 async function hydrateGoogleStatus() {
@@ -580,12 +717,16 @@ async function hydrateGoogleStatus() {
     const status = await response.json();
     googleConnected = Boolean(status.token_present);
     gmailAuthorized = Boolean(status.gmail_authorized);
-    googleStatusBadge.textContent = status.ready_to_connect
-      ? "Listo para conectar"
-      : "Configuracion pendiente";
+    googleStatusBadge.textContent = status.token_present
+      ? "Conectado"
+      : status.ready_to_connect
+        ? "Listo"
+        : "Pendiente";
     googleStatusDetail.textContent = status.token_present
-      ? `Google conectado. ${status.gmail_authorized ? "Correos Gmail autorizados." : "Correos Gmail pendientes de permiso."}`
-      : "OAuth configurado sin exponer la cuenta en el repo publico. Falta completar el consentimiento si aun no hay token.";
+      ? status.gmail_authorized
+        ? "Sincronizado · Gmail activo"
+        : "Reconecta para habilitar envio de correos del centro"
+      : "Conecta calendario y correo oficial del centro";
     googleStatusBadge.dataset.ready = String(status.ready_to_connect);
   } catch {
     googleStatusBadge.textContent = "Sin conexion API";
@@ -595,7 +736,7 @@ async function hydrateGoogleStatus() {
 
 async function hydrateGoogleEvents() {
   try {
-    const response = await trackedFetch("/api/integrations/google/events?max_results=50");
+    const response = await trackedFetch("/api/integrations/google/events?max_results=20");
     if (!response.ok) return;
     const payload = await response.json();
     if (!payload.connected) return;
@@ -637,9 +778,9 @@ async function ensurePrimaryOrganization() {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      name: "Centro de Estudiantes de Psicologia",
+      name: "Centro de Estudiantes de Psicología · UDLA Maipú",
       slug: "ccaa-psicologia",
-      domain_hint: "psicologia",
+      domain_hint: "udla-maipu-psicologia",
     }),
   });
 
@@ -698,7 +839,8 @@ function renderAdminUsers(users) {
     const name = document.createElement("strong");
     name.textContent = user.display_name;
     const meta = document.createElement("span");
-    meta.textContent = `${user.rut_masked || "RUT protegido"} · ${user.role} · ${user.email}`;
+    const mailPref = user.email_notifications_enabled ? "Correos ON" : "Correos OFF";
+    meta.textContent = `${user.rut_masked || "RUT protegido"} · ${user.role} · ${user.email} · ${mailPref}`;
     body.append(name, meta);
 
     const status = document.createElement("span");
@@ -876,6 +1018,60 @@ function prepareReservationForm() {
   reservationForm.elements.ends_at.value = toDateTimeLocalValue(end);
 }
 
+async function hydrateProfile() {
+  if (!profileSummary || !profileEmailNotifications) return;
+  if (!authSession?.token) {
+    profileSummary.textContent = "Inicia sesion para gestionar tus avisos por correo.";
+    profileEmailNotifications.checked = true;
+    profileEmailNotifications.disabled = true;
+    profileSaveButton.hidden = true;
+    profileEmailStatus.textContent =
+      "Los correos se envian desde la cuenta oficial del centro cuando esta conectada en Google.";
+    return;
+  }
+
+  profileSummary.textContent = `${authSession.display_name} · ${authSession.email}`;
+  profileEmailNotifications.checked = Boolean(authSession.email_notifications_enabled);
+  profileEmailNotifications.disabled = false;
+  profileSaveButton.hidden = false;
+
+  try {
+    const response = await trackedFetch("/api/auth/me", { headers: authHeaders() });
+    if (!response.ok) return;
+    const profile = await response.json();
+    authSession = { ...authSession, email_notifications_enabled: profile.email_notifications_enabled };
+    profileEmailNotifications.checked = Boolean(profile.email_notifications_enabled);
+    profileEmailStatus.textContent = profile.email_notifications_enabled
+      ? "Recibiras confirmaciones al agendar y recordatorios antes del evento."
+      : "No recibiras correos masivos del calendario. Puedes activarlos cuando quieras.";
+  } catch {
+    profileEmailStatus.textContent = "No pudimos cargar tu perfil. Intenta de nuevo.";
+  }
+}
+
+async function saveProfileNotifications() {
+  if (!authSession?.token || !profileEmailNotifications) return;
+  profileSaveButton.disabled = true;
+  const response = await trackedFetch("/api/auth/me/notifications", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({
+      email_notifications_enabled: profileEmailNotifications.checked,
+    }),
+  });
+  profileSaveButton.disabled = false;
+  if (!response.ok) {
+    profileEmailStatus.textContent = "No pudimos guardar la preferencia.";
+    return;
+  }
+  const profile = await response.json();
+  authSession = { ...authSession, email_notifications_enabled: profile.email_notifications_enabled };
+  profileEmailStatus.textContent = profile.email_notifications_enabled
+    ? "Preferencia guardada: recibiras avisos por correo."
+    : "Preferencia guardada: no recibiras avisos masivos.";
+  chirp("soft");
+}
+
 async function createEventFromForm(formData) {
   const localEvent = {
     id: crypto.randomUUID(),
@@ -889,7 +1085,7 @@ async function createEventFromForm(formData) {
   if (organizationId) {
     const response = await trackedFetch("/api/events", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...authHeaders() },
       body: JSON.stringify({
         organization_id: organizationId,
         title: localEvent.title,
@@ -899,6 +1095,7 @@ async function createEventFromForm(formData) {
         ends_at: localEvent.ends_at,
         description: localEvent.description,
         created_by_user_id: authSession?.user_id || null,
+        notify_subscribers: Boolean(formData.get("notify_subscribers")),
       }),
     });
 
@@ -944,44 +1141,147 @@ async function syncEventToGoogle(eventId) {
   return true;
 }
 
-async function sendReminderEmail(eventId, formData) {
-  const recipientEmail = String(formData.get("reminder_email") || "").trim();
-  if (!recipientEmail) return;
-
-  const response = await trackedFetch(`/api/integrations/google/events/${eventId}/reminder-email`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      recipient_email: recipientEmail,
-      minutes_before: 60,
-      note: "Recordatorio creado desde la vista piloto de CCAACalendar.",
-    }),
-  });
-
-  if (!response.ok) {
-    setEventSaveStatus(
-      gmailAuthorized
-        ? "El evento se guardo, pero Gmail no pudo enviar el correo."
-        : "Evento guardado. Para correos directos, activa Gmail con el boton del panel.",
-      "warning",
-    );
-    return;
-  }
-  setEventSaveStatus("Evento guardado y correo de recordatorio enviado.", "success");
+function showAuthStep(step) {
+  authStepLookup.hidden = step !== "lookup";
+  authStepLogin.hidden = step !== "login";
+  authStepActivate.hidden = step !== "activate";
+  if (authStepReset) authStepReset.hidden = step !== "reset";
+  authStepBlocked.hidden = step !== "blocked";
+  authPanel.dataset.step = step;
 }
 
-loginForm.addEventListener("submit", async (event) => {
+function resetAuthFlow() {
+  authLookupContext = null;
+  showAuthStep("lookup");
+  lookupForm?.reset();
+  loginForm?.reset();
+  activateForm?.reset();
+}
+
+function rutSummaryText(rutMasked) {
+  return rutMasked ? `RUT ${rutMasked}` : "RUT autorizado";
+}
+
+function applyLookupHintsToActivateForm(lookup) {
+  if (!activateForm) return;
+  const firstName = activateForm.querySelector('[name="first_name"]');
+  const lastName = activateForm.querySelector('[name="last_name"]');
+  const email = activateForm.querySelector('[name="email"]');
+  if (firstName && lookup.first_name_hint && !firstName.value) {
+    firstName.value = lookup.first_name_hint;
+  }
+  if (lastName && lookup.last_name_hint && !lastName.value) {
+    lastName.value = lookup.last_name_hint;
+  }
+  if (email && lookup.email_hint && !email.value) {
+    email.value = lookup.email_hint;
+  }
+}
+
+async function hydrateLoginBootstrap() {
+  if (!bootstrapOfficialEmail) return;
+  try {
+    const response = await trackedFetch("/api/auth/bootstrap");
+    if (!response.ok) return;
+    const bootstrap = await response.json();
+    if (bootstrap.official_email) {
+      bootstrapOfficialEmail.textContent = bootstrap.official_email;
+      const googleNote = bootstrap.google_token_present
+        ? "Google Calendar del centro conectado."
+        : "Pendiente conectar Google desde el panel (OAuth del correo oficial).";
+      bootstrapOfficialDetail.textContent = `${bootstrap.center_name}. ${googleNote}`;
+      return;
+    }
+    bootstrapOfficialEmail.textContent = "Correo oficial pendiente";
+    bootstrapOfficialDetail.textContent =
+      "Define GOOGLE_CENTER_ACCOUNT_EMAIL en el servidor para mostrar el calendario institucional.";
+  } catch {
+    bootstrapOfficialDetail.textContent = "No se pudo cargar la configuracion del centro.";
+  }
+}
+
+lookupForm?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const formData = new FormData(lookupForm);
+  const rut = String(formData.get("rut") || "").trim();
+  if (!rut) {
+    setLoginStatus("Ingresa tu RUT para continuar.", "warning");
+    return;
+  }
+
+  setLoginStatus("Verificando RUT en el roster del centro...", "neutral");
+  try {
+    const response = await trackedFetch("/api/auth/lookup", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ rut }),
+    });
+    if (!response.ok) {
+      const errorBody = await response.json().catch(() => ({}));
+      if (response.status === 404) {
+        setLoginStatus(
+          "La API no tiene el endpoint de validacion. Reinicia el servidor (uvicorn --reload) y recarga la pagina.",
+          "warning",
+        );
+      } else {
+        const detail = errorBody.detail;
+        const detailText = typeof detail === "string" ? detail : Array.isArray(detail) ? detail[0]?.msg : "";
+        setLoginStatus(detailText || "No pudimos validar el RUT. Reintenta en unos segundos.", "warning");
+      }
+      return;
+    }
+
+    const lookup = await response.json();
+    authLookupContext = { rut, ...lookup };
+
+    if (lookup.status === "ready_to_login") {
+      loginForm.elements.rut.value = rut;
+      loginRutSummary.textContent = rutSummaryText(lookup.rut_masked);
+      showAuthStep("login");
+      setLoginStatus("Ingresa tu clave para abrir el calendario.", "neutral");
+      loginForm.querySelector('[name="password"]')?.focus();
+      return;
+    }
+
+    if (lookup.status === "needs_activation") {
+      activateForm.elements.rut.value = rut;
+      activateRutSummary.textContent = `${rutSummaryText(lookup.rut_masked)} · primera activacion`;
+      applyLookupHintsToActivateForm(lookup);
+      showAuthStep("activate");
+      setLoginStatus("Completa tus datos y crea tu clave personal.", "neutral");
+      activateForm.querySelector('[name="first_name"]')?.focus();
+      return;
+    }
+
+    if (lookup.status === "inactive") {
+      blockedMessage.textContent =
+        "Tu cuenta esta inactiva. Pide a la directiva que reactive tu acceso.";
+      showAuthStep("blocked");
+      setLoginStatus("Cuenta inactiva.", "warning");
+      return;
+    }
+
+    blockedMessage.textContent =
+      "Tu RUT no figura habilitado en el centro. Contacta a la directiva para que te agreguen al roster.";
+    showAuthStep("blocked");
+    setLoginStatus("RUT no habilitado.", "warning");
+  } catch {
+    setLoginStatus("No se pudo contactar la API. Reintenta en unos segundos.", "warning");
+  }
+});
+
+loginForm?.addEventListener("submit", async (event) => {
   event.preventDefault();
   const formData = new FormData(loginForm);
-  const rut = String(formData.get("rut") || "").trim();
+  const rut = String(formData.get("rut") || authLookupContext?.rut || "").trim();
   const password = String(formData.get("password") || "");
 
   if (!rut || !password) {
-    setLoginStatus("Ingresa RUT y clave para abrir el calendario operativo.", "warning");
+    setLoginStatus("Ingresa tu clave para continuar.", "warning");
     return;
   }
 
-  setLoginStatus("Verificando acceso orbital...", "neutral");
+  setLoginStatus("Verificando acceso...", "neutral");
   try {
     const response = await trackedFetch("/api/auth/login", {
       method: "POST",
@@ -990,7 +1290,7 @@ loginForm.addEventListener("submit", async (event) => {
     });
 
     if (!response.ok) {
-      setLoginStatus("No pudimos validar esas credenciales. Si aun no activaste acceso, queda pendiente con el roster local.", "warning");
+      setLoginStatus("Clave incorrecta. Si olvidaste la clave, usa recuperacion.", "warning");
       return;
     }
 
@@ -998,8 +1298,122 @@ loginForm.addEventListener("submit", async (event) => {
     setLoginStatus(`Sesion iniciada como ${authSession.display_name}.`, "success");
     openApp();
   } catch {
-    setLoginStatus("No se pudo contactar la API. Reintenta en unos segundos o avisa a soporte.", "warning");
+    setLoginStatus("No se pudo contactar la API. Reintenta en unos segundos.", "warning");
   }
+});
+
+activateForm?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const formData = new FormData(activateForm);
+  const rut = String(formData.get("rut") || authLookupContext?.rut || "").trim();
+  const password = String(formData.get("password") || "");
+  const passwordConfirm = String(formData.get("password_confirm") || "");
+
+  if (password !== passwordConfirm) {
+    setLoginStatus("Las claves no coinciden.", "warning");
+    return;
+  }
+
+  setLoginStatus("Creando tu cuenta interna...", "neutral");
+  try {
+    const response = await trackedFetch("/api/auth/activate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        rut,
+        password,
+        password_confirm: passwordConfirm,
+        email: String(formData.get("email") || "").trim(),
+        first_name: String(formData.get("first_name") || "").trim(),
+        last_name: String(formData.get("last_name") || "").trim(),
+      }),
+    });
+
+    if (!response.ok) {
+      const detail = (await response.json().catch(() => ({}))).detail;
+      setLoginStatus(detail || "No pudimos activar tu cuenta.", "warning");
+      return;
+    }
+
+    authSession = await response.json();
+    setLoginStatus(`Cuenta creada. Bienvenida, ${authSession.display_name}.`, "success");
+    openApp();
+  } catch {
+    setLoginStatus("No se pudo contactar la API. Reintenta en unos segundos.", "warning");
+  }
+});
+
+passwordResetButton?.addEventListener("click", async () => {
+  const rut = String(loginForm?.elements.rut?.value || authLookupContext?.rut || "").trim();
+  if (!rut) {
+    setLoginStatus("No hay RUT en contexto para recuperar clave.", "warning");
+    return;
+  }
+  setLoginStatus("Solicitando recuperacion de clave...", "neutral");
+  try {
+    const response = await trackedFetch("/api/auth/password-reset/request", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ rut }),
+    });
+    const payload = await response.json().catch(() => ({}));
+    setLoginStatus(payload.message || "Si el RUT existe, enviaremos instrucciones al correo asociado.", "neutral");
+    if (resetConfirmForm) {
+      resetConfirmForm.elements.rut.value = rut;
+      showAuthStep("reset");
+    }
+  } catch {
+    setLoginStatus("No se pudo solicitar la recuperacion.", "warning");
+  }
+});
+
+resetConfirmForm?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const formData = new FormData(resetConfirmForm);
+  const rut = String(formData.get("rut") || "").trim();
+  const token = String(formData.get("token") || "").trim();
+  const password = String(formData.get("password") || "");
+  const passwordConfirm = String(formData.get("password_confirm") || "");
+  if (password !== passwordConfirm) {
+    setLoginStatus("Las claves no coinciden.", "warning");
+    return;
+  }
+  setLoginStatus("Guardando nueva clave...", "neutral");
+  try {
+    const response = await trackedFetch("/api/auth/password-reset/confirm", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ rut, token, password, password_confirm: passwordConfirm }),
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      setLoginStatus(payload.detail || "No pudimos restablecer la clave.", "warning");
+      return;
+    }
+    setLoginStatus(payload.message || "Clave actualizada.", "success");
+    authLookupContext = { rut };
+    if (loginForm?.elements.rut) loginForm.elements.rut.value = rut;
+    showAuthStep("login");
+  } catch {
+    setLoginStatus("No se pudo contactar la API.", "warning");
+  }
+});
+
+function maybeOpenPasswordResetFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  const token = params.get("reset_token");
+  if (!token || !resetConfirmForm) return;
+  resetConfirmForm.elements.token.value = token;
+  showAuthStep("reset");
+  setLoginStatus("Ingresa tu RUT y la nueva clave.", "neutral");
+  window.history.replaceState({}, "", window.location.pathname);
+}
+
+document.querySelectorAll("[data-auth-back]").forEach((button) => {
+  button.addEventListener("click", () => {
+    resetAuthFlow();
+    setLoginStatus("Ingresa tu RUT para continuar.", "neutral");
+  });
 });
 
 demoButton?.addEventListener("click", openApp);
@@ -1104,6 +1518,10 @@ newEventButton.addEventListener("click", () => {
   dialog.showModal();
 });
 
+profileSaveButton?.addEventListener("click", () => {
+  saveProfileNotifications();
+});
+
 todayButton.addEventListener("click", () => {
   const today = new Date();
   calendarCursor = new Date(today.getFullYear(), today.getMonth(), 1);
@@ -1129,12 +1547,19 @@ nextMonthButton.addEventListener("click", () => {
 
 notificationButton.addEventListener("click", async () => {
   const permission = await ensureNotificationPermission();
+  syncNotificationButtonState();
   if (permission === "granted") {
-    notificationButton.textContent = "Notificaciones ON";
-    notifyNow("CCAACalendar listo", "Los recordatorios del navegador quedaron habilitados en este dispositivo.");
+    await notifyNow(
+      "CCAACalendar listo",
+      "Las alertas quedaron activas. Te avisaremos 30 min antes de cada evento con recordatorio.",
+    );
     return;
   }
-  notificationButton.textContent = permission === "denied" ? "Bloqueadas" : "No disponible";
+  if (permission === "denied") {
+    window.alert(
+      "Notificaciones bloqueadas. Abre ajustes del sitio (candado en la barra de direcciones) y permite notificaciones para ccaa.drakescraft.cl",
+    );
+  }
 });
 
 eventForm.addEventListener("submit", async (event) => {
@@ -1149,25 +1574,55 @@ eventForm.addEventListener("submit", async (event) => {
 
   if (formData.get("browser_reminder")) {
     const permission = await ensureNotificationPermission();
+    syncNotificationButtonState();
     if (permission === "granted") {
-      scheduleBrowserReminder(createdEvent);
-      notifyNow("Recordatorio activado", `Seguiremos ${createdEvent.title} en este navegador.`);
+      const scheduled = scheduleBrowserReminder(createdEvent, 30);
+      if (scheduled) {
+        await notifyNow(
+          "Recordatorio programado",
+          `${createdEvent.title}: te avisaremos 30 min antes aunque cierres la pestana.`,
+        );
+      } else {
+        setEventSaveStatus(
+          "El evento quedo guardado, pero ya paso la ventana de aviso (30 min antes).",
+          "warning",
+        );
+      }
+    } else if (permission === "denied") {
+      setEventSaveStatus("Activa notificaciones con el boton Alertas del calendario.", "warning");
     }
   }
 
+  const notifyTeam = Boolean(formData.get("notify_subscribers"));
   if (formData.get("sync_google") && !String(createdEvent.id).startsWith("seed-")) {
     const synced = await syncEventToGoogle(createdEvent.id);
+    if (synced && notifyTeam) {
+      setEventSaveStatus(
+        gmailAuthorized
+          ? "Evento guardado, sincronizado con Google y avisos por correo en cola."
+          : "Evento guardado y sincronizado. Reconecta Google con Gmail para enviar correos.",
+        gmailAuthorized ? "success" : "warning",
+      );
+    } else {
+      setEventSaveStatus(
+        synced
+          ? notifyTeam
+            ? "Evento guardado y sincronizado. Avisos por correo en cola si Gmail esta activo."
+            : "Evento guardado y sincronizado con Google Calendar."
+          : "Evento guardado localmente. La sincronizacion con Google quedo pendiente.",
+        synced ? "success" : "warning",
+      );
+    }
+  } else if (notifyTeam) {
     setEventSaveStatus(
-      synced
-        ? "Evento guardado y sincronizado con Google Calendar."
-        : "Evento guardado localmente. La sincronizacion con Google quedo pendiente.",
-      synced ? "success" : "warning",
+      gmailAuthorized
+        ? "Evento guardado. Confirmacion y recordatorios en cola para integrantes con avisos ON."
+        : "Evento guardado. Conecta Google con Gmail para enviar correos del centro.",
+      gmailAuthorized ? "success" : "warning",
     );
   } else {
     setEventSaveStatus("Evento guardado localmente.", "success");
   }
-
-  await sendReminderEmail(createdEvent.id, formData);
   dialog.close();
   chirp("gold");
   render();
@@ -1212,6 +1667,9 @@ window.addEventListener("unhandledrejection", (event) => {
   );
 });
 
+resetAuthFlow();
+maybeOpenPasswordResetFromUrl();
+syncNotificationButtonState();
+hydrateLoginBootstrap();
 hydrateOrbitConfig();
 hydrateHolidays();
-hydrateGoogleStatus();

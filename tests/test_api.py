@@ -184,6 +184,8 @@ def test_google_login_persists_pkce_code_verifier(tmp_path) -> None:
         assert "code_challenge=" in response.headers["location"]
         state = json.loads(state_path.read_text(encoding="utf-8"))
         assert state["state"]
+        assert state["include_gmail"] is True
+        assert settings.google_gmail_scopes in state["scopes"]
         assert len(state["code_verifier"]) >= 43
     finally:
         app.dependency_overrides.clear()
@@ -342,6 +344,76 @@ def test_admin_roster_flags_invalid_ruts(tmp_path) -> None:
     assert not entries[1].can_login
 
 
+def test_auth_lookup_reports_activation_and_login_states(tmp_path) -> None:
+    test_email = f"lookup-{uuid.uuid4()}@example.com"
+    roster = tmp_path / "admins.json"
+    roster.write_text(
+        json.dumps(
+            {
+                "admins": [
+                    {
+                        "rut": "21.452.686-7",
+                        "email": test_email,
+                        "display_name": "Directiva Demo",
+                        "role": "admin",
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    pepper = f"lookup-pepper-{uuid.uuid4()}"
+    app.dependency_overrides[get_settings] = lambda: Settings(
+        admin_roster_path=str(roster),
+        admin_identity_pepper=pepper,
+    )
+
+    try:
+        with TestClient(app) as client:
+            needs_activation = client.post(
+                "/api/auth/lookup",
+                json={"rut": "21.452.686-7"},
+            )
+            assert needs_activation.status_code == 200
+            assert needs_activation.json()["status"] == "needs_activation"
+            assert needs_activation.json()["email_hint"] == test_email
+
+            client.post(
+                "/api/auth/activate",
+                json={
+                    "rut": "21.452.686-7",
+                    "password": "orbit-demo-seguro",
+                    "first_name": "Directiva",
+                    "last_name": "Demo",
+                    "email": test_email,
+                },
+            )
+            ready = client.post("/api/auth/lookup", json={"rut": "21452686-7"})
+            assert ready.status_code == 200
+            assert ready.json()["status"] == "ready_to_login"
+
+            unknown = client.post("/api/auth/lookup", json={"rut": "18.765.432-1"})
+            assert unknown.status_code == 200
+            assert unknown.json()["status"] == "not_in_roster"
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_auth_bootstrap_exposes_center_email(tmp_path) -> None:
+    app.dependency_overrides[get_settings] = lambda: Settings(
+        google_center_account_email="centro.psicologia@example.com",
+    )
+    try:
+        with TestClient(app) as client:
+            response = client.get("/api/auth/bootstrap")
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["official_email"] == "centro.psicologia@example.com"
+        assert payload["official_email_configured"] is True
+    finally:
+        app.dependency_overrides.clear()
+
+
 def test_admin_can_activate_and_login_with_rut(tmp_path) -> None:
     test_email = f"directiva-{uuid.uuid4()}@example.com"
     roster = tmp_path / "admins.json"
@@ -473,6 +545,77 @@ def test_space_reservation_rejects_time_conflict(tmp_path) -> None:
         app.dependency_overrides.clear()
 
 
+def test_password_reset_confirm_updates_password(tmp_path) -> None:
+    test_email = f"reset-{uuid.uuid4()}@example.com"
+    roster = tmp_path / "admins.json"
+    roster.write_text(
+        json.dumps(
+            {
+                "admins": [
+                    {
+                        "rut": "21.452.686-7",
+                        "email": test_email,
+                        "display_name": "Reset Demo",
+                        "role": "admin",
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    pepper = f"reset-pepper-{uuid.uuid4()}"
+    app.dependency_overrides[get_settings] = lambda: Settings(
+        admin_roster_path=str(roster),
+        admin_identity_pepper=pepper,
+        mail_fallback_console=True,
+    )
+
+    try:
+        with TestClient(app) as client:
+            client.post(
+                "/api/auth/activate",
+                json={"rut": "21.452.686-7", "password": "clave-vieja-12345"},
+            )
+            request_response = client.post(
+                "/api/auth/password-reset/request",
+                json={"rut": "21.452.686-7"},
+            )
+            assert request_response.status_code == 200
+
+            from ccaa_calendar.models import User
+            from ccaa_calendar.database import get_session
+
+            session = next(get_session())
+            user = session.scalar(
+                __import__("sqlalchemy").select(User).where(User.email == test_email)
+            )
+            assert user and user.password_reset_token_hash
+
+            from ccaa_calendar.security import new_public_token, hash_token
+
+            token = new_public_token()
+            user.password_reset_token_hash = hash_token(token)
+            session.add(user)
+            session.commit()
+
+            confirm = client.post(
+                "/api/auth/password-reset/confirm",
+                json={
+                    "rut": "21.452.686-7",
+                    "token": token,
+                    "password": "clave-nueva-12345",
+                },
+            )
+            assert confirm.status_code == 200
+            login = client.post(
+                "/api/auth/login",
+                json={"rut": "21452686-7", "password": "clave-nueva-12345"},
+            )
+            assert login.status_code == 200
+    finally:
+        app.dependency_overrides.clear()
+
+
 def test_password_reset_request_uses_neutral_message(tmp_path) -> None:
     roster = tmp_path / "admins.json"
     roster.write_text('{"admins": []}', encoding="utf-8")
@@ -490,5 +633,130 @@ def test_password_reset_request_uses_neutral_message(tmp_path) -> None:
 
         assert response.status_code == 200
         assert response.json()["message"].startswith("Si los datos existen")
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_event_create_queues_email_notifications(tmp_path) -> None:
+    db_path = tmp_path / "notifications.db"
+    settings = Settings(
+        database_url=f"sqlite:///{db_path}",
+        event_email_reminder_minutes="1440,60",
+        mail_fallback_console=True,
+    )
+    app.dependency_overrides[get_settings] = lambda: settings
+
+    try:
+        with TestClient(app) as client:
+            organization = client.post(
+                "/api/organizations",
+                json={
+                    "name": f"Org Mail {uuid.uuid4()}",
+                    "slug": f"org-mail-{uuid.uuid4()}",
+                },
+            ).json()
+
+            from ccaa_calendar.database import SessionLocal
+            from ccaa_calendar.models import EventEmailQueue, User
+
+            with SessionLocal() as session:
+                user = User(
+                    organization_id=organization["id"],
+                    email=f"integrante-{uuid.uuid4()}@example.com",
+                    display_name="Integrante Prueba",
+                    role="admin",
+                    is_active=True,
+                    email_notifications_enabled=True,
+                )
+                session.add(user)
+                session.commit()
+                user_id = user.id
+
+            event = client.post(
+                "/api/events",
+                json={
+                    "organization_id": organization["id"],
+                    "title": "Asamblea general",
+                    "category": "centro",
+                    "visibility": "organization",
+                    "starts_at": "2026-12-01T15:00:00+00:00",
+                    "ends_at": "2026-12-01T16:00:00+00:00",
+                    "description": "Prueba de cola de correos.",
+                    "created_by_user_id": user_id,
+                    "notify_subscribers": True,
+                },
+            )
+            assert event.status_code == 201
+
+            with SessionLocal() as session:
+                queued = list(
+                    session.scalars(
+                        __import__("sqlalchemy").select(EventEmailQueue).where(
+                            EventEmailQueue.event_id == event.json()["id"]
+                        )
+                    )
+                )
+                kinds = {item.kind for item in queued}
+                assert "created" in kinds
+                assert "reminder" in kinds
+                assert len(queued) >= 2
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_profile_notification_preference(tmp_path) -> None:
+    test_email = f"perfil-{uuid.uuid4()}@example.com"
+    roster = tmp_path / "admins.json"
+    roster.write_text(
+        json.dumps(
+            {
+                "admins": [
+                    {
+                        "rut": "21.452.686-7",
+                        "display_name": "Pablo Prueba",
+                        "email": test_email,
+                        "role": "admin",
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    settings = Settings(
+        admin_roster_path=str(roster),
+        admin_identity_pepper=f"test-pepper-{tmp_path.name}",
+        database_url=f"sqlite:///{tmp_path / 'profile.db'}",
+    )
+    app.dependency_overrides[get_settings] = lambda: settings
+
+    try:
+        with TestClient(app) as client:
+            lookup = client.post("/api/auth/lookup", json={"rut": "21452686-7"})
+            assert lookup.status_code == 200
+            if lookup.json()["status"] == "ready_to_login":
+                session_response = client.post(
+                    "/api/auth/login",
+                    json={"rut": "21452686-7", "password": "clave-segura-123"},
+                )
+            else:
+                session_response = client.post(
+                    "/api/auth/activate",
+                    json={"rut": "21452686-7", "password": "clave-segura-123"},
+                )
+            assert session_response.status_code in {200, 201}, session_response.text
+            token = session_response.json()["token"]
+            headers = {"Authorization": f"Bearer {token}"}
+
+            profile = client.get("/api/auth/me", headers=headers)
+            assert profile.status_code == 200
+            initial = profile.json()["email_notifications_enabled"]
+
+            updated = client.patch(
+                "/api/auth/me/notifications",
+                headers=headers,
+                json={"email_notifications_enabled": not initial},
+            )
+            assert updated.status_code == 200
+            assert updated.json()["email_notifications_enabled"] is not initial
     finally:
         app.dependency_overrides.clear()

@@ -63,6 +63,7 @@ def _apply_sqlite_dev_migrations() -> None:
         "password_reset_token_hash": "VARCHAR(255)",
         "password_reset_expires_at": "DATETIME",
         "last_login_at": "DATETIME",
+        "email_notifications_enabled": "BOOLEAN DEFAULT 1",
     }
     required_event_columns = {
         "created_by_user_id": "VARCHAR(36)",
@@ -81,6 +82,12 @@ def _apply_sqlite_dev_migrations() -> None:
             if column_name not in existing_columns:
                 statement = f"ALTER TABLE users ADD COLUMN {column_name} {column_type}"
                 connection.execute(text(statement))
+        connection.execute(
+            text(
+                "UPDATE users SET email_notifications_enabled = 1 "
+                "WHERE email_notifications_enabled IS NULL"
+            )
+        )
 
         event_table_exists = connection.execute(
             text("SELECT name FROM sqlite_master WHERE type='table' AND name='events'")

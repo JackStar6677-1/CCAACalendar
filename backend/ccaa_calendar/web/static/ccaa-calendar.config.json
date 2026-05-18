@@ -1,7 +1,9 @@
 {
   "pilot": {
-    "organization": "Centro de Estudiantes de Psicologia",
-    "center": "Psicologia",
+    "organization": "Centro de Estudiantes de Psicología · UDLA Maipú",
+    "center": "Psicología",
+    "university": "Universidad de las Américas (UDLA)",
+    "campus": "Maipú"
     "calendarOwnerLabel": "Cuenta oficial del centro",
     "monthLabel": "Calendario oficial"
   },

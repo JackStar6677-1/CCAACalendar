@@ -72,6 +72,7 @@ class EventCreate(BaseModel):
     visibility: str = Field(default="organization", max_length=40)
     starts_at: datetime
     ends_at: datetime
+    notify_subscribers: bool = True
 
 
 class SpaceReservationCreate(BaseModel):
@@ -110,9 +111,27 @@ class ReminderEmailRequest(BaseModel):
     note: str = Field(default="", max_length=500)
 
 
+class AuthLookupRequest(BaseModel):
+    rut: str = Field(min_length=7, max_length=20)
+
+
+class AuthLookupResponse(BaseModel):
+    status: str
+    rut_masked: str | None = None
+    display_name_hint: str | None = None
+    first_name_hint: str | None = None
+    last_name_hint: str | None = None
+    email_hint: str | None = None
+    role_hint: str | None = None
+
+
 class AuthActivateRequest(BaseModel):
     rut: str = Field(min_length=7, max_length=20)
     password: str = Field(min_length=8, max_length=128)
+    password_confirm: str | None = Field(default=None, max_length=128)
+    email: str | None = Field(default=None, max_length=254)
+    first_name: str | None = Field(default=None, min_length=1, max_length=90)
+    last_name: str | None = Field(default=None, min_length=1, max_length=90)
 
 
 class AuthLoginRequest(BaseModel):
@@ -127,6 +146,29 @@ class AuthSessionRead(BaseModel):
     email: str
     role: str
     rut_masked: str | None
+    email_notifications_enabled: bool = True
+
+
+class UserProfileRead(BaseModel):
+    user_id: str
+    display_name: str
+    email: str
+    role: str
+    rut_masked: str | None
+    email_notifications_enabled: bool
+
+
+class UserNotificationPreferencesUpdate(BaseModel):
+    email_notifications_enabled: bool
+
+
+class LoginBootstrapRead(BaseModel):
+    organization_name: str
+    center_name: str
+    official_email: str | None
+    official_email_configured: bool
+    google_token_present: bool
+    google_ready_to_connect: bool
 
 
 class AdminUserRead(BaseModel):
@@ -138,8 +180,17 @@ class AdminUserRead(BaseModel):
     role: str
     rut_masked: str | None
     is_active: bool
+    email_notifications_enabled: bool
     last_login_at: datetime | None
     created_at: datetime
+
+
+class EventNotificationSummary(BaseModel):
+    subscribers: int
+    queued_created: int
+    queued_reminders: int
+    mail_sent: int
+    mail_pending: int
 
 
 class AuditLogRead(BaseModel):
@@ -156,6 +207,13 @@ class AuditLogRead(BaseModel):
 
 class PasswordResetRequest(BaseModel):
     rut: str = Field(min_length=7, max_length=20)
+
+
+class PasswordResetConfirmRequest(BaseModel):
+    rut: str = Field(min_length=7, max_length=20)
+    token: str = Field(min_length=16, max_length=256)
+    password: str = Field(min_length=8, max_length=128)
+    password_confirm: str | None = Field(default=None, max_length=128)
 
 
 class PasswordResetResponse(BaseModel):

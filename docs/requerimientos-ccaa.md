@@ -1,8 +1,8 @@
 # Requerimientos reales de CCAA
 
-Fuente local: `C:\Users\Jack\Downloads\Proyecto para CCAA.txt`.
+Fuentes locales (no versionadas): notas del piloto y conversación con Kika (`Proyecto para kika.txt` / requerimientos CCAA).
 
-Este resumen existe para mantener el norte del producto sin versionar conversaciones completas ni datos privados.
+Este resumen existe para mantener el norte del producto sin subir chats completos ni datos privados.
 
 ## Producto esperado
 
@@ -75,5 +75,23 @@ El ejemplo clave es el auditorio:
 - Usar Castel como referencia de calendario, no como arquitectura final.
 - Mantener una base Python/FastAPI + SQL.
 - Preparar PostgreSQL y migraciones versionadas.
-- Gmail queda para avisos futuros; Calendar va primero.
+- Gmail API para avisos operativos desde la cuenta oficial del centro (confirmaciones y recordatorios masivos con opt-in por integrante en Mi perfil).
+- Calendar sigue siendo la integración principal de agenda compartida.
+
+## Estado de implementación (mayo 2026)
+
+| Prioridad Kika/CCAA | Estado |
+| --- | --- |
+| Web/PWA, sin mezclar Gmail personal | Hecho en piloto |
+| Cuenta Google solo del centro + RUT interno | Hecho |
+| Eventos del centro en web + sync a Google | Parcial |
+| Feriados y categorías | Parcial |
+| Reserva de auditorio / espacios | Parcial (API + choques; falta UI visual fuerte) |
+| Recordatorios (correo / navegador) | Parcial |
+| Importación calendario anual | Pendiente |
+| Multi-centro y capas | Pendiente (modelo listo) |
+| Sync bidireccional Google | Parcial |
+| Anuncios y estadísticas | Pendiente |
+
+Ver tabla detallada en el [README](../README.md#avance-frente-a-lo-pedido-resumen-kika--ccaa).
 

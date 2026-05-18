@@ -22,8 +22,36 @@ class Settings(BaseSettings):
     admin_roster_path: str = ".local/admin_roster.json"
     admin_identity_pepper: str = "change-this-local-secret"
     app_log_path: str = ".local/logs/ccaa-calendar.jsonl"
+    app_public_url: str = "https://ccaa.drakescraft.cl"
+    mail_from_email: str = ""
+    mail_from_name: str = "CCAACalendar · CE Psicología UDLA"
+    mail_fallback_console: bool = True
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_username: str = ""
+    smtp_password: str = ""
+    smtp_from_email: str = ""
+    smtp_from_name: str = ""
+    smtp_use_tls: bool = True
+    smtp_use_ssl: bool = False
+    event_email_reminder_minutes: str = "1440,60"
+    event_email_worker_interval_seconds: int = 60
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+
+    def event_reminder_offsets(self) -> list[int]:
+        offsets: list[int] = []
+        for part in self.event_email_reminder_minutes.split(","):
+            part = part.strip()
+            if not part:
+                continue
+            try:
+                value = int(part)
+            except ValueError:
+                continue
+            if 5 <= value <= 10080:
+                offsets.append(value)
+        return sorted(set(offsets), reverse=True)
 
     @property
     def cors_origins(self) -> list[str]:

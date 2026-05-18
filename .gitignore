@@ -17,6 +17,7 @@ legacy/castel-calendar/data/site.json
 *.log
 *.tmp
 .env
+backups/
 .venv/
 .local/
 __pycache__/

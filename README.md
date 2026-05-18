@@ -8,18 +8,53 @@ CCAACalendar convierte un calendario académico y administrativo en una platafor
 
 > Proyecto en desarrollo activo. La carpeta local todavía se llama `CastelRoomKeeper` porque nació desde el calendario de Castel, pero el producto público es **CCAACalendar**.
 
-## Estado Actual
+## Estado Actual (mayo 2026)
 
-| Area | Estado |
-| --- | --- |
-| Backend FastAPI | Base funcional |
-| SQLite local | Funcional para desarrollo |
-| PostgreSQL | Preparado por arquitectura y migraciones |
-| PWA | Shell inicial, manifest, service worker y offline |
-| Auth interna | RUT + clave + roles base |
-| Google Calendar | OAuth iniciado como integración de calendario oficial |
-| Castel legacy | Preservado como referencia en `legacy/castel-calendar` |
-| Tests | `pytest` + `ruff` |
+**Piloto activo:** Centro de Estudiantes de Psicología, UDLA Maipú.  
+**Formato:** web/PWA (no app nativa).  
+**Demo/despliegue:** túnel Cloudflare hacia instancia local; ver `.env.example` para variables sin secretos.
+
+| Área | Estado | Notas |
+| --- | --- | --- |
+| Backend FastAPI | Operativo | API REST, auditoría, worker de correos en segundo plano |
+| SQLite local | En uso | Desarrollo y piloto |
+| PostgreSQL | Preparado | Migraciones Alembic listas; aún no en producción |
+| PWA | Funcional | Manifest, service worker, instalable, alertas en el navegador |
+| Auth interna | Operativo | RUT + clave, activación, recuperación de clave por correo |
+| Google Calendar | Parcial | OAuth cuenta oficial; sync app → Google; lectura de eventos Google |
+| Gmail (centro) | Parcial | Envío vía API si OAuth incluye `gmail.send` y cuenta reconectada |
+| Correos masivos | Operativo | Confirmación al crear evento + recordatorios 24 h y 1 h (opt-in por perfil) |
+| Multi-centro | Diseño | Un solo centro en piloto; modelo listo para más centros |
+| Importación académica | Pendiente | Word/PDF/Excel aún no implementado |
+| Castel legacy | Referencia | `legacy/castel-calendar` |
+| Tests | `pytest` + `ruff` | Suite API ampliada |
+
+### Avance frente a lo pedido (resumen Kika / CCAA)
+
+Fuente de producto (local, no versionada): conversación y requerimientos del piloto de Psicología.
+
+| # | Requerimiento | Estado | Comentario |
+| --- | --- | --- | --- |
+| 1 | Web/PWA, no calendarios personales mezclados | Hecho (piloto) | Integrantes entran con RUT; Google solo para cuenta oficial del centro |
+| 2 | Calendario del centro + Google Calendar | Parcial | Crear evento → sync opcional a Google; leer eventos del calendario conectado |
+| 3 | Feriados, categorías, vista mensual | Parcial | Feriados Chile + categorías en UI; falta capas multi-centro |
+| 4 | Coordinación de espacios (auditorio) | Parcial | CRUD espacios + reservas con detección de choques; falta mapa visual rojo/verde |
+| 5 | Roles y permisos | Parcial | Roles en roster y BD; falta DAE, aprobaciones y permisos finos |
+| 6 | Recordatorios | Parcial | Navegador + correos masivos opt-in; Google nativo al sincronizar |
+| 7 | Importar calendario anual (Word/PDF/Excel) | Pendiente | Próximo bloque grande; alinea con idea “subir documento y actualizar el año” |
+| 8 | Multi-centro (Psicología, Kine, DAE…) | Pendiente | Arquitectura preparada; piloto solo Psicología |
+| 9 | Sincronización bidireccional Google | Parcial | App → Google sí; Google → app solo lectura de lista, no merge completo |
+| 10 | Anuncios, estadísticas, auditoría | Parcial | Auditoría de login/eventos sí; anuncios y stats no |
+
+**Lectura honesta:** el boceto para mostrar a Kika está **cerca en identidad, calendario, login y primeras reservas**. Para el producto “universidad completa” faltan **importación académica**, **multi-centro visible**, **capas/filtros** y **sync Google más robusto**. No hace falta cambiar de enfoque (web + cuenta oficial + RUT); conviene **terminar el piloto de Psicología** antes de abrir otro frente (p. ej. app nativa o un calendario por centro duplicado).
+
+### Qué falta para cerrar el piloto (orden sugerido)
+
+1. Reconectar OAuth del centro con Calendar + Gmail en el entorno de demo.
+2. Probar flujo completo: activar integrante → perfil (avisos ON) → crear evento → correo + sync Google.
+3. Pulir reservas de auditorio (mensajes de choque visibles para todas).
+4. Importación mínima de fechas académicas (aunque sea CSV manual al inicio).
+5. Segundo centro en solo lectura o capa extra (validar modelo multi-centro).
 
 ## Identidad Del Producto
 
@@ -151,6 +186,10 @@ GOOGLE_CENTER_ACCOUNT_EMAIL=
 GOOGLE_CALENDAR_ID=primary
 ADMIN_ROSTER_PATH=.local/admin_roster.json
 ADMIN_IDENTITY_PEPPER=change-this-local-secret
+EVENT_EMAIL_REMINDER_MINUTES=1440,60
+EVENT_EMAIL_WORKER_INTERVAL_SECONDS=60
+MAIL_FROM_NAME=CCAACalendar
+MAIL_FALLBACK_CONSOLE=true
 ```
 
 No subir:
@@ -189,7 +228,7 @@ https://ccaa.drakescraft.cl
 ```
 
 8. Mantener la app en **Testing** mientras desarrollamos.
-9. Agregar como test user la cuenta real que conectará el calendario del centro.
+9. Agregar como **usuarios de prueba** las cuentas Google que autorizarán el calendario oficial del centro (correo institucional del CE, no Gmail personal de integrantes).
 
 10. Para sincronización y recordatorios, habilitar APIs en **Google Cloud > APIs y servicios > Biblioteca**:
 
@@ -203,10 +242,10 @@ https://www.googleapis.com/auth/calendar.events
 https://www.googleapis.com/auth/gmail.send
 ```
 
-El scope de Gmail debe pedirse solo cuando se active la función de correos. En desarrollo se usa:
+La conexión OAuth del centro pide **Calendar + Gmail** en un solo paso:
 
 ```text
-https://ccaa.drakescraft.cl/api/integrations/google/login?include_gmail=true
+https://ccaa.drakescraft.cl/api/integrations/google/login
 ```
 
 12. Descargar el JSON OAuth solo en local y guardarlo como:
@@ -233,16 +272,26 @@ POST /api/centers
 GET  /api/events
 POST /api/events
 GET  /api/holidays?year=2026
+POST /api/auth/lookup
 POST /api/auth/activate
 POST /api/auth/login
+GET  /api/auth/me
+PATCH /api/auth/me/notifications
 POST /api/auth/password-reset/request
+POST /api/auth/password-reset/confirm
 GET  /api/integrations/google/status
 GET  /api/integrations/google/login
 GET  /api/integrations/google/callback
 GET  /api/integrations/google/events
 POST /api/integrations/google/events/{event_id}/sync
 POST /api/integrations/google/events/{event_id}/reminder-email
+POST /api/spaces
+POST /api/spaces/reservations
+GET  /api/admin/users
+GET  /api/admin/audit
 ```
+
+Al crear un evento con `notify_subscribers: true`, la API encola confirmación y recordatorios (24 h y 1 h) para usuarias con avisos activos en **Mi perfil**. Un worker en el servidor procesa la cola periódicamente.
 
 ## Rutas Web
 
@@ -257,34 +306,33 @@ POST /api/integrations/google/events/{event_id}/reminder-email
 
 ## Roadmap
 
-### Ahora
+### Hecho en el piloto actual
 
-- Auth interna por RUT + clave.
-- Calendario mensual más real.
-- Crear/editar eventos desde modal.
-- Conexión Google Calendar para cuenta oficial del centro.
-- Sincronizar eventos creados en la app hacia Google Calendar.
-- Recordatorios nativos de Google: popup 30 min antes y correo 60 min antes.
-- Notificaciones del navegador para recordatorios en el dispositivo.
-- Base Gmail API para correos manuales de recordatorio.
-- Persistencia segura de conexión por centro.
+- Auth por RUT: lookup, activación, login, recuperación de clave.
+- Calendario mensual, agenda del día, feriados Chile, modal de eventos.
+- Panel admin (usuarios + auditoría) y **Mi perfil** (opt-in de correos).
+- Reservas de espacios con validación de solapamiento.
+- Google OAuth (Calendar + Gmail en un paso) para la cuenta oficial del centro.
+- Sync de eventos creados en la app hacia Google Calendar.
+- Correos masivos desde la cuenta del centro (cola + worker).
+- Notificaciones del navegador (30 min antes, por dispositivo).
+- PWA instalable y tema responsive.
 
-### Siguiente
+### Siguiente (cerrar piloto Psicología)
 
-- Manejar refresh token y desconexión.
-- Programador de recordatorios en backend para envíos automáticos.
-- Filtros por centro, espacio y tipo de evento.
-- Gestión de administradoras.
-- Gestión de espacios y bloqueos.
+- Reconexión estable de Google (refresh token, pantalla de estado clara).
+- Importación de calendario académico (CSV mínimo → Word/PDF después).
+- Capas/filtros por categoría y por centro en la UI.
+- Vista de ocupación de espacios más visual (libre/ocupado).
+- Edición de eventos y flujo Google → app más completo.
+- Segundo centro de prueba en la misma instancia.
 
-### Después
+### Después (escala universidad)
 
-- PostgreSQL en VPS.
-- Docker + Caddy.
-- Backups diarios.
-- Importación Word/PDF/Excel.
-- Auditoría completa.
-- Multi-centro y multi-organización.
+- PostgreSQL en VPS, Docker + Caddy, backups diarios.
+- Importación Word/PDF/Excel del calendario académico.
+- Multi-centro y multi-organización en una sola instancia.
+- Anuncios institucionales, estadísticas de uso de espacios y auditoría ampliada.
 
 ## Castel Como Base
 
@@ -298,7 +346,7 @@ La regla de trabajo es clara:
 
 ## Documentación
 
-- [`docs/requerimientos-CCAA.md`](docs/requerimientos-CCAA.md): resumen de lo pedido por CCAA.
+- [`docs/requerimientos-ccaa.md`](docs/requerimientos-ccaa.md): resumen de lo pedido por CCAA / piloto Kika.
 - [`docs/estrategia-google-sin-dominio.md`](docs/estrategia-google-sin-dominio.md): estrategia Google sin Workspace.
 - [`docs/identidad-admin-rut.md`](docs/identidad-admin-rut.md): identidad de administradoras por RUT.
 - [`docs/diseno-calendario-multiusuario-y-bloqueos.md`](docs/diseno-calendario-multiusuario-y-bloqueos.md): diseño de calendario, espacios y bloqueos.

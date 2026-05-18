@@ -68,7 +68,7 @@ def google_client_config(settings: Settings) -> dict[str, Any]:
     }
 
 
-def oauth_scopes(settings: Settings, include_gmail: bool = False) -> list[str]:
+def oauth_scopes(settings: Settings, include_gmail: bool = True) -> list[str]:
     scopes = [settings.google_calendar_scopes]
     if include_gmail:
         scopes.append(settings.google_gmail_scopes)
@@ -81,7 +81,7 @@ def new_code_verifier() -> str:
 
 def make_flow(
     settings: Settings,
-    include_gmail: bool = False,
+    include_gmail: bool = True,
     code_verifier: str | None = None,
 ) -> Flow:
     if settings.is_local:

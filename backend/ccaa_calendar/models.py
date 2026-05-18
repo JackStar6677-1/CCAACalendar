@@ -74,6 +74,7 @@ class User(TimestampMixin, Base):
     password_reset_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    email_notifications_enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
     __table_args__ = (
         Index("ix_users_org_email", "organization_id", "email", unique=True),
@@ -155,6 +156,32 @@ class Event(TimestampMixin, Base):
     __table_args__ = (
         Index("ix_events_org_starts", "organization_id", "starts_at"),
         Index("ix_events_center_starts", "center_id", "starts_at"),
+    )
+
+
+class EventEmailQueue(TimestampMixin, Base):
+    __tablename__ = "event_email_queue"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    event_id: Mapped[str] = mapped_column(ForeignKey("events.id"), nullable=False, index=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
+    recipient_email: Mapped[str] = mapped_column(String(254), nullable=False)
+    kind: Mapped[str] = mapped_column(String(40), nullable=False)
+    minutes_before: Mapped[int | None]
+    fire_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+    sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    status: Mapped[str] = mapped_column(String(40), default="pending", nullable=False)
+    last_error: Mapped[str | None] = mapped_column(String(500))
+
+    __table_args__ = (
+        Index(
+            "ix_event_email_queue_dedupe",
+            "event_id",
+            "user_id",
+            "kind",
+            "minutes_before",
+            unique=True,
+        ),
     )
 
 

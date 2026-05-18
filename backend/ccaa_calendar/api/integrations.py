@@ -105,7 +105,7 @@ def send_google_reminder_email(
 @router.get("/login")
 def google_login(
     settings: SettingsDep,
-    include_gmail: bool = Query(default=False),
+    include_gmail: bool = Query(default=True),
 ) -> RedirectResponse:
     try:
         code_verifier = new_code_verifier()
@@ -220,7 +220,7 @@ def google_callback(request: Request, settings: SettingsDep) -> HTMLResponse:
     try:
         flow = make_flow(
             settings,
-            include_gmail=bool(expected.get("include_gmail")),
+            include_gmail=bool(expected.get("include_gmail", True)),
             code_verifier=str(expected.get("code_verifier", "")) or None,
         )
         flow.fetch_token(authorization_response=str(request.url))
@@ -271,9 +271,9 @@ def google_callback(request: Request, settings: SettingsDep) -> HTMLResponse:
         <html lang="es">
           <head><meta charset="utf-8"><title>CCAACalendar conectado</title></head>
           <body style="font-family: system-ui; padding: 2rem;">
-            <h1>Calendario oficial conectado con CCAACalendar</h1>
-            <p>La cuenta Google del centro quedo enlazada. Las administradoras siguen entrando
-            con su usuario interno de CCAACalendar.</p>
+            <h1>Calendario y correo del centro conectados</h1>
+            <p>La cuenta Google del centro quedo enlazada con permisos de calendario y envio
+            de correos. Las integrantes siguen entrando con su usuario interno de CCAACalendar.</p>
             <p><a href="/app">Abrir CCAACalendar</a></p>
             <script>
               window.setTimeout(() => {

@@ -1,7 +1,7 @@
 {
   "name": "CCAACalendar",
   "short_name": "CCAA",
-  "description": "Calendario universitario vivo para centros, espacios y agenda academica.",
+  "description": "Calendario del Centro de Estudiantes de Psicología, UDLA Maipú.",
   "id": "/app",
   "start_url": "/app?pwa=1",
   "scope": "/",

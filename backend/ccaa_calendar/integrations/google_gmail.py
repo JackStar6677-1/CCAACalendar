@@ -8,6 +8,7 @@ from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 
 from ccaa_calendar.integrations.google_oauth import read_json
+from ccaa_calendar.integrations.mail_delivery import send_email
 from ccaa_calendar.models import Event
 from ccaa_calendar.settings import Settings
 
@@ -66,14 +67,20 @@ def send_event_reminder_email(
     minutes_before: int = 60,
     note: str = "",
 ) -> dict:
-    service = _gmail_service(settings)
-    message = EmailMessage()
-    message["To"] = recipient_email
-    message["Subject"] = reminder_subject(event)
-    message.set_content(reminder_body(event, minutes_before, note))
-    raw = base64.urlsafe_b64encode(message.as_bytes()).decode("utf-8")
+    token = read_json(settings.google_token_path)
+    if settings.google_gmail_scopes not in set(token.get("scopes", [])):
+        raise GmailSendNotAuthorizedError(
+            "Gmail send scope is missing. Reconnect Google with include_gmail=true."
+        )
 
     try:
-        return service.users().messages().send(userId="me", body={"raw": raw}).execute()
+        provider = send_email(
+            settings,
+            to=recipient_email,
+            subject=reminder_subject(event),
+            body_text=reminder_body(event, minutes_before, note),
+            prefer="gmail",
+        )
+        return {"provider": provider, "recipient": recipient_email}
     except Exception as exc:
         raise GmailSendError(str(exc)) from exc
