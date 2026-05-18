@@ -13,7 +13,7 @@
     <link rel="icon" href="/assets/orbit-icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/assets/orbit-icon.svg" />
     <link rel="preload" href="/assets/orbit-rings.svg" as="image" />
-    <link rel="stylesheet" href="/assets/styles.css?v=6" />
+    <link rel="stylesheet" href="/assets/styles.css?v=8" />
   </head>
   <body>
     <div class="ambient ambient-one"></div>
@@ -21,7 +21,7 @@
     <main class="shell" data-screen="login">
       <section class="login-view" aria-labelledby="login-title">
         <div class="brand-panel">
-          <span class="eyebrow">CCAACalendar · piloto académico</span>
+          <span class="eyebrow">CCAACalendar · calendario institucional</span>
           <div class="orbit-mark" aria-hidden="true">
             <span></span>
             <span></span>
@@ -30,7 +30,7 @@
           <h1 id="login-title">Un centro de mando para que el calendario no se vuelva nebulosa.</h1>
           <p>
             Agenda institucional, reservas de espacios y coordinación por centro en una sola vista.
-            Este primer corte es visual y operativo para seguir construyendo encima.
+            Diseñado para operar con una cuenta Google oficial y accesos internos separados.
           </p>
           <div class="signal-row" aria-label="Modulos del piloto">
             <span>Psicologia</span>
@@ -41,7 +41,7 @@
 
         <form class="login-card" id="login-form">
           <div>
-            <span class="eyebrow">Acceso demo</span>
+            <span class="eyebrow">Acceso interno</span>
             <h2>Entrar al panel</h2>
             <p>
               Cada administradora entra con su RUT y clave propia. Google solo conecta el calendario
@@ -60,9 +60,9 @@
           <a class="google-entry-action" href="/api/integrations/google/login">
             Conectar Google del centro
           </a>
-          <button class="ghost-action" type="button" id="demo-button">Usar modo invitado</button>
+          <button class="ghost-action" type="button" id="demo-button" hidden>Vista invitada</button>
           <p class="microcopy" id="login-status">
-            El acceso real usa RUT autorizado y clave propia. El modo invitado queda para mostrar la maqueta.
+            Ingresa con RUT autorizado y clave propia. Google solo representa el calendario oficial compartido.
           </p>
         </form>
       </section>
@@ -96,11 +96,13 @@
         <section class="workspace">
           <header class="topbar">
             <div>
-              <span class="eyebrow">Universidad Demo · Psicologia</span>
-              <h2>Calendario base de mayo 2026</h2>
+              <span class="eyebrow">Centro de Estudiantes · Psicologia</span>
+              <h2>Calendario oficial del centro</h2>
             </div>
             <div class="top-actions">
+              <button class="ghost-action compact" id="prev-month-button" type="button">Mes anterior</button>
               <button class="ghost-action compact" id="today-button" type="button">Hoy</button>
+              <button class="ghost-action compact" id="next-month-button" type="button">Mes siguiente</button>
               <button class="ghost-action compact" id="notification-button" type="button">Notificaciones</button>
               <button class="primary-action compact" id="new-event-button" type="button">Nuevo evento</button>
             </div>
@@ -138,7 +140,7 @@
               <div class="panel-heading">
                 <div>
                   <span class="eyebrow">Vista mensual</span>
-                  <h3 id="calendar-title">Mayo 2026</h3>
+                  <h3 id="calendar-title">Calendario oficial</h3>
                 </div>
                 <div class="calendar-legend">
                   <span><i class="dot orange"></i> Centro</span>
@@ -157,7 +159,7 @@
             <aside class="agenda-panel" aria-labelledby="agenda-title">
               <div class="panel-heading">
                 <div>
-                  <span class="eyebrow">Proximos hitos</span>
+                  <span class="eyebrow">Detalle del dia</span>
                   <h3 id="agenda-title">Agenda viva</h3>
                 </div>
               </div>
@@ -195,7 +197,7 @@
           </div>
           <label>
             Titulo
-            <input name="title" value="Asamblea centro de estudiantes" required minlength="2" />
+            <input name="title" placeholder="Nombre del evento" required minlength="2" />
           </label>
           <label>
             Categoria
@@ -208,16 +210,16 @@
           <div class="split-fields">
             <label>
               Inicio
-              <input name="starts_at" type="datetime-local" value="2026-05-26T14:00" required />
+              <input name="starts_at" type="datetime-local" required />
             </label>
             <label>
               Termino
-              <input name="ends_at" type="datetime-local" value="2026-05-26T16:00" required />
+              <input name="ends_at" type="datetime-local" required />
             </label>
           </div>
           <label>
             Detalle
-            <textarea name="description">Coordinacion inicial con sala por confirmar.</textarea>
+            <textarea name="description" placeholder="Notas, sala, responsables o contexto"></textarea>
           </label>
           <div class="option-stack" aria-label="Opciones de sincronizacion y recordatorio">
             <label class="check-option">
@@ -238,6 +240,6 @@
         </form>
       </dialog>
     </main>
-    <script src="/assets/app.js?v=6" type="module"></script>
+    <script src="/assets/app.js?v=8" type="module"></script>
   </body>
 </html>

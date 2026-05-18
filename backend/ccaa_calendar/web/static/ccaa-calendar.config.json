@@ -1,9 +1,9 @@
 {
   "pilot": {
-    "organization": "Universidad Demo",
+    "organization": "Centro de Estudiantes de Psicologia",
     "center": "Psicologia",
     "calendarOwnerLabel": "Cuenta oficial del centro",
-    "monthLabel": "Mayo 2026"
+    "monthLabel": "Calendario oficial"
   },
   "modules": [
     {
@@ -21,8 +21,8 @@
     {
       "id": "spaces",
       "label": "Espacios",
-      "status": "Diseñado",
-      "detail": "Reservas y bloqueos listos para persistencia SQL."
+      "status": "En diseño",
+      "detail": "Reservas y bloqueos se migran desde la logica de Castel."
     },
     {
       "id": "google",

@@ -15,8 +15,12 @@ const eventForm = document.querySelector("#event-form");
 const eventSaveStatus = document.querySelector("#event-save-status");
 const newEventButton = document.querySelector("#new-event-button");
 const todayButton = document.querySelector("#today-button");
+const prevMonthButton = document.querySelector("#prev-month-button");
+const nextMonthButton = document.querySelector("#next-month-button");
 const notificationButton = document.querySelector("#notification-button");
 const installButton = document.querySelector("#install-button");
+const calendarTitle = document.querySelector("#calendar-title");
+const agendaTitle = document.querySelector("#agenda-title");
 
 let soundEnabled = false;
 let audioContext;
@@ -26,35 +30,18 @@ let authSession;
 let orbitConfig;
 let googleConnected = false;
 let gmailAuthorized = false;
+let calendarCursor = new Date();
+calendarCursor = new Date(calendarCursor.getFullYear(), calendarCursor.getMonth(), 1);
+let selectedDate = dateKey(new Date());
 
-const fallbackEvents = [
-  {
-    id: "seed-1",
-    title: "Reunion centro de estudiantes",
-    category: "centro",
-    starts_at: "2026-05-18T11:00:00-04:00",
-    ends_at: "2026-05-18T12:30:00-04:00",
-    description: "Planificacion de hitos del mes y responsables por comision.",
-  },
-  {
-    id: "seed-2",
-    title: "Semana de bienvenida",
-    category: "academico",
-    starts_at: "2026-05-21T09:00:00-04:00",
-    ends_at: "2026-05-21T13:00:00-04:00",
-    description: "Actividad academica importable desde calendario oficial.",
-  },
-  {
-    id: "seed-3",
-    title: "Auditorio reservado",
-    category: "espacio",
-    starts_at: "2026-05-25T15:00:00-04:00",
-    ends_at: "2026-05-25T17:00:00-04:00",
-    description: "Bloque protegido para evitar choques de salas.",
-  },
-];
+const PLACEHOLDER_TITLES = new Set([
+  "reunion centro de estudiantes",
+  "reunión centro de estudiantes",
+  "semana de bienvenida",
+  "auditorio reservado",
+]);
 
-let events = [...fallbackEvents];
+let events = [];
 let holidays = [];
 
 const fallbackConfig = {
@@ -127,6 +114,16 @@ function normalizeCategory(category) {
   return "centro";
 }
 
+function isPlaceholderEvent(event) {
+  return PLACEHOLDER_TITLES.has(String(event.title || "").trim().toLocaleLowerCase("es-CL"));
+}
+
+function uniqueEvents(items) {
+  return items
+    .filter((event) => !isPlaceholderEvent(event))
+    .filter((event, index, list) => list.findIndex((item) => item.id === event.id) === index);
+}
+
 function eventDate(event) {
   return new Date(event.starts_at);
 }
@@ -184,9 +181,29 @@ function scheduleBrowserReminder(event) {
   }, delay);
 }
 
+function toDateTimeLocalValue(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  const hour = String(date.getHours()).padStart(2, "0");
+  const minute = String(date.getMinutes()).padStart(2, "0");
+  return `${year}-${month}-${day}T${hour}:${minute}`;
+}
+
+function prepareEventFormForSelectedDay() {
+  const base = new Date(`${selectedDate}T10:00:00`);
+  const end = new Date(base);
+  end.setHours(base.getHours() + 1);
+  eventForm.elements.starts_at.value = toDateTimeLocalValue(base);
+  eventForm.elements.ends_at.value = toDateTimeLocalValue(end);
+  eventForm.elements.title.value = "";
+  eventForm.elements.description.value = "";
+  setEventSaveStatus("El evento puede quedar local o sincronizarse al Google oficial.", "neutral");
+}
+
 function buildMonthDays() {
-  const month = 4;
-  const year = 2026;
+  const month = calendarCursor.getMonth();
+  const year = calendarCursor.getFullYear();
   const first = new Date(year, month, 1);
   const startOffset = (first.getDay() + 6) % 7;
   const days = [];
@@ -210,6 +227,12 @@ function eventsForDay(day) {
   });
 }
 
+function selectedDayEvents() {
+  return events
+    .filter((event) => dateKey(eventDate(event)) === selectedDate)
+    .toSorted((a, b) => eventDate(a) - eventDate(b));
+}
+
 function dateKey(date) {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -224,14 +247,23 @@ function holidayForDay(day) {
 function renderCalendar() {
   calendarGrid.replaceChildren();
   const today = new Date();
+  calendarTitle.textContent = calendarCursor.toLocaleDateString("es-CL", {
+    month: "long",
+    year: "numeric",
+  });
 
   buildMonthDays().forEach((day) => {
     const dayCard = document.createElement("article");
     dayCard.className = "calendar-day";
     const holiday = holidayForDay(day);
-    if (day.getMonth() !== 4) dayCard.classList.add("is-muted");
+    const key = dateKey(day);
+    const dayEvents = eventsForDay(day).toSorted((a, b) => eventDate(a) - eventDate(b));
+    const visibleEvents = dayEvents.slice(0, 3);
+    const hiddenCount = Math.max(0, dayEvents.length - visibleEvents.length);
+    if (day.getMonth() !== calendarCursor.getMonth()) dayCard.classList.add("is-muted");
     if (holiday) dayCard.classList.add("is-holiday");
     if (holiday?.is_irrenunciable) dayCard.classList.add("is-irrenunciable");
+    if (selectedDate === key) dayCard.classList.add("is-selected");
     if (
       day.getFullYear() === today.getFullYear() &&
       day.getMonth() === today.getMonth() &&
@@ -239,6 +271,11 @@ function renderCalendar() {
     ) {
       dayCard.classList.add("today");
     }
+    dayCard.addEventListener("click", () => {
+      selectedDate = key;
+      chirp(dayEvents.length > 0 ? "gold" : "soft");
+      render();
+    });
 
     const dateNumber = document.createElement("div");
     dateNumber.className = "date-number";
@@ -247,7 +284,7 @@ function renderCalendar() {
     })}</span>`;
     dayCard.append(dateNumber);
 
-    if (holiday && day.getMonth() === 4) {
+    if (holiday && day.getMonth() === calendarCursor.getMonth()) {
       const ribbon = document.createElement("span");
       ribbon.className = `holiday-ribbon${holiday.is_irrenunciable ? " is-irrenunciable" : ""}`;
       ribbon.title = holiday.label;
@@ -255,14 +292,40 @@ function renderCalendar() {
       dayCard.append(ribbon);
     }
 
-    eventsForDay(day).forEach((event) => {
+    if (dayEvents.length > 0) {
+      const dayBadge = document.createElement("span");
+      dayBadge.className = "day-count-badge";
+      dayBadge.textContent = String(dayEvents.length);
+      dayCard.append(dayBadge);
+    }
+
+    visibleEvents.forEach((event) => {
       const pill = document.createElement("button");
       pill.type = "button";
       pill.className = `event-pill ${normalizeCategory(event.category)}`;
       pill.textContent = event.title;
-      pill.addEventListener("click", () => chirp(event.category === "espacio" ? "gold" : "soft"));
+      pill.addEventListener("click", (clickEvent) => {
+        clickEvent.stopPropagation();
+        selectedDate = key;
+        chirp(event.category === "espacio" ? "gold" : "soft");
+        render();
+      });
       dayCard.append(pill);
     });
+
+    if (hiddenCount > 0) {
+      const more = document.createElement("button");
+      more.type = "button";
+      more.className = "more-events";
+      more.textContent = `+${hiddenCount} mas`;
+      more.addEventListener("click", (clickEvent) => {
+        clickEvent.stopPropagation();
+        selectedDate = key;
+        chirp("gold");
+        render();
+      });
+      dayCard.append(more);
+    }
 
     calendarGrid.append(dayCard);
   });
@@ -270,9 +333,15 @@ function renderCalendar() {
 
 function renderAgenda() {
   agendaList.replaceChildren();
+  const selected = new Date(`${selectedDate}T12:00:00`);
+  agendaTitle.textContent = selected.toLocaleDateString("es-CL", {
+    day: "numeric",
+    month: "long",
+    weekday: "long",
+  });
 
   const holidayItems = holidays
-    .filter((holiday) => holiday.date.startsWith("2026-05"))
+    .filter((holiday) => holiday.date === selectedDate)
     .map((holiday) => ({
       id: `holiday-${holiday.date}`,
       title: holiday.label,
@@ -281,13 +350,25 @@ function renderAgenda() {
       ends_at: `${holiday.date}T23:59:00-04:00`,
       all_day: true,
       description: holiday.is_irrenunciable
-        ? "Feriado irrenunciable adoptado desde la base Castel."
-        : "Feriado nacional adoptado desde la base Castel.",
+        ? "Feriado irrenunciable confirmado en calendario chileno."
+        : "Feriado nacional confirmado en calendario chileno.",
     }));
 
-  [...events, ...holidayItems]
+  const dayItems = [...selectedDayEvents(), ...holidayItems].toSorted((a, b) => eventDate(a) - eventDate(b));
+
+  if (dayItems.length === 0) {
+    const empty = document.createElement("article");
+    empty.className = "agenda-empty";
+    empty.innerHTML = `
+      <strong>Sin eventos para este dia</strong>
+      <p>Selecciona otro dia o crea un evento nuevo para enviarlo al calendario oficial.</p>
+    `;
+    agendaList.append(empty);
+    return;
+  }
+
+  dayItems
     .toSorted((a, b) => eventDate(a) - eventDate(b))
-    .slice(0, 6)
     .forEach((event, index) => {
       const item = document.createElement("article");
       item.className = `agenda-item ${event.category === "holiday" ? "holiday" : normalizeCategory(event.category)}`;
@@ -329,7 +410,10 @@ function renderAgenda() {
 }
 
 function render() {
-  metricEvents.textContent = String(events.length);
+  const visibleMonth = `${calendarCursor.getFullYear()}-${String(calendarCursor.getMonth() + 1).padStart(2, "0")}`;
+  metricEvents.textContent = String(
+    events.filter((event) => dateKey(eventDate(event)).startsWith(visibleMonth)).length,
+  );
   metricHolidays.textContent = String(holidays.filter((holiday) => holiday.is_irrenunciable).length);
   renderMissionStrip();
   renderCalendar();
@@ -395,9 +479,7 @@ async function hydrateGoogleEvents() {
 
     const googleEvents = payload.events || [];
     if (googleEvents.length > 0) {
-      events = [...googleEvents, ...events].filter(
-        (event, index, list) => list.findIndex((item) => item.id === event.id) === index,
-      );
+      events = uniqueEvents([...googleEvents, ...events]);
       googleStatusBadge.textContent = "Google sincronizado";
       googleStatusDetail.textContent = `${googleEvents.length} eventos del calendario oficial cargados en la vista.`;
       render();
@@ -422,19 +504,19 @@ async function hydrateHolidays() {
   }
 }
 
-async function ensureDemoOrganization() {
+async function ensurePrimaryOrganization() {
   const response = await fetch("/api/organizations");
   const organizations = response.ok ? await response.json() : [];
-  const existing = organizations.find((item) => item.slug === "universidad-demo");
+  const existing = organizations.find((item) => item.slug === "ccaa-psicologia");
   if (existing) return existing.id;
 
   const created = await fetch("/api/organizations", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      name: "Universidad Demo",
-      slug: "universidad-demo",
-      domain_hint: "demo.edu",
+      name: "Centro de Estudiantes de Psicologia",
+      slug: "ccaa-psicologia",
+      domain_hint: "psicologia",
     }),
   });
 
@@ -444,7 +526,7 @@ async function ensureDemoOrganization() {
 
 async function hydrateFromApi() {
   try {
-    organizationId = await ensureDemoOrganization();
+    organizationId = await ensurePrimaryOrganization();
     if (!organizationId) return;
 
     const response = await fetch(`/api/events?organization_id=${organizationId}`);
@@ -452,9 +534,7 @@ async function hydrateFromApi() {
 
     const apiEvents = await response.json();
     if (apiEvents.length > 0) {
-      events = [...apiEvents, ...fallbackEvents].filter(
-        (event, index, list) => list.findIndex((item) => item.id === event.id) === index,
-      );
+      events = uniqueEvents([...apiEvents, ...events]);
       render();
     }
   } catch {
@@ -562,7 +642,7 @@ loginForm.addEventListener("submit", async (event) => {
   const password = String(formData.get("password") || "");
 
   if (!rut || !password) {
-    setLoginStatus("Ingresa RUT y clave, o usa modo invitado para revisar la maqueta.", "warning");
+    setLoginStatus("Ingresa RUT y clave para abrir el calendario operativo.", "warning");
     return;
   }
 
@@ -583,11 +663,11 @@ loginForm.addEventListener("submit", async (event) => {
     setLoginStatus(`Sesion iniciada como ${authSession.display_name}.`, "success");
     openApp();
   } catch {
-    setLoginStatus("No se pudo contactar la API local. Puedes usar modo invitado mientras revisamos.", "warning");
+    setLoginStatus("No se pudo contactar la API. Reintenta en unos segundos o avisa a soporte.", "warning");
   }
 });
 
-demoButton.addEventListener("click", openApp);
+demoButton?.addEventListener("click", openApp);
 
 soundToggle.addEventListener("click", async () => {
   soundEnabled = !soundEnabled;
@@ -601,12 +681,31 @@ soundToggle.addEventListener("click", async () => {
 
 newEventButton.addEventListener("click", () => {
   chirp("soft");
+  prepareEventFormForSelectedDay();
   dialog.showModal();
 });
 
 todayButton.addEventListener("click", () => {
-  document.querySelector(".calendar-day.today")?.scrollIntoView({ behavior: "smooth", block: "center" });
+  const today = new Date();
+  calendarCursor = new Date(today.getFullYear(), today.getMonth(), 1);
+  selectedDate = dateKey(today);
   chirp("gold");
+  render();
+  document.querySelector(".calendar-day.today")?.scrollIntoView({ behavior: "smooth", block: "center" });
+});
+
+prevMonthButton.addEventListener("click", () => {
+  calendarCursor = new Date(calendarCursor.getFullYear(), calendarCursor.getMonth() - 1, 1);
+  selectedDate = dateKey(new Date(calendarCursor.getFullYear(), calendarCursor.getMonth(), 1));
+  chirp("soft");
+  render();
+});
+
+nextMonthButton.addEventListener("click", () => {
+  calendarCursor = new Date(calendarCursor.getFullYear(), calendarCursor.getMonth() + 1, 1);
+  selectedDate = dateKey(new Date(calendarCursor.getFullYear(), calendarCursor.getMonth(), 1));
+  chirp("soft");
+  render();
 });
 
 notificationButton.addEventListener("click", async () => {

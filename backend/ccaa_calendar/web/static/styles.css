@@ -621,6 +621,8 @@ nav {
 }
 
 .calendar-day {
+  position: relative;
+  overflow: hidden;
   min-height: 7.8rem;
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 18px;
@@ -634,10 +636,15 @@ nav {
 
 .calendar-day:hover,
 .calendar-day.today,
-.calendar-day.is-holiday {
+.calendar-day.is-holiday,
+.calendar-day.is-selected {
   border-color: rgba(255, 209, 102, 0.5);
   background: rgba(255, 209, 102, 0.08);
   transform: translateY(-2px);
+}
+
+.calendar-day.is-selected {
+  box-shadow: inset 0 0 0 1px rgba(255, 209, 102, 0.34), 0 16px 36px rgba(0, 0, 0, 0.22);
 }
 
 .calendar-day.is-irrenunciable {
@@ -659,8 +666,25 @@ nav {
   font-weight: 900;
 }
 
+.day-count-badge {
+  position: absolute;
+  top: 2.15rem;
+  right: 0.55rem;
+  display: grid;
+  min-width: 1.45rem;
+  height: 1.45rem;
+  place-items: center;
+  border: 1px solid rgba(129, 230, 195, 0.28);
+  border-radius: 999px;
+  background: rgba(11, 32, 35, 0.82);
+  color: var(--green);
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
 .event-pill {
   width: 100%;
+  max-width: 100%;
   margin-top: 0.45rem;
   border: 0;
   border-radius: 12px;
@@ -670,6 +694,9 @@ nav {
   font-size: 0.78rem;
   font-weight: 900;
   text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .event-pill.academico {
@@ -682,6 +709,19 @@ nav {
 
 .event-pill.google {
   background: rgba(129, 230, 195, 0.2);
+}
+
+.more-events {
+  width: 100%;
+  margin-top: 0.36rem;
+  border: 1px dashed rgba(255, 255, 255, 0.18);
+  border-radius: 10px;
+  padding: 0.32rem 0.45rem;
+  background: rgba(255, 255, 255, 0.055);
+  color: var(--green);
+  font-size: 0.72rem;
+  font-weight: 900;
+  text-align: left;
 }
 
 .holiday-ribbon {
@@ -717,6 +757,24 @@ nav {
   padding: 0.9rem;
   background: rgba(255, 255, 255, 0.055);
   animation: rise-in 420ms ease both;
+}
+
+.agenda-empty {
+  border: 1px dashed rgba(255, 255, 255, 0.18);
+  border-radius: 18px;
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.045);
+  color: var(--muted);
+}
+
+.agenda-empty strong {
+  display: block;
+  color: var(--text);
+  margin-bottom: 0.35rem;
+}
+
+.agenda-empty p {
+  margin: 0;
 }
 
 .agenda-item.academico {
@@ -995,7 +1053,8 @@ nav {
 
   .calendar-day:hover,
   .calendar-day.today,
-  .calendar-day.is-holiday {
+  .calendar-day.is-holiday,
+  .calendar-day.is-selected {
     transform: none;
   }
 
@@ -1018,6 +1077,21 @@ nav {
     line-height: 1.1;
     overflow: hidden;
     text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .day-count-badge {
+    top: 0.38rem;
+    right: 0.36rem;
+    min-width: 1.12rem;
+    height: 1.12rem;
+    font-size: 0.58rem;
+  }
+
+  .more-events {
+    padding: 0.2rem 0.25rem;
+    border-radius: 8px;
+    font-size: 0.58rem;
     white-space: nowrap;
   }
 
