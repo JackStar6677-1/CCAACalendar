@@ -45,6 +45,7 @@ class EventCreate(BaseModel):
     organization_id: str
     center_id: str | None = None
     space_id: str | None = None
+    created_by_user_id: str | None = None
     title: str = Field(min_length=2, max_length=220)
     description: str = ""
     category: str = Field(default="general", max_length=60)
@@ -70,6 +71,7 @@ class EventRead(BaseModel):
     ends_at: datetime
     google_calendar_id: str | None
     google_event_id: str | None
+    created_by_user_id: str | None
 
 
 class ReminderEmailRequest(BaseModel):
@@ -95,6 +97,31 @@ class AuthSessionRead(BaseModel):
     email: str
     role: str
     rut_masked: str | None
+
+
+class AdminUserRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    display_name: str
+    email: str
+    role: str
+    rut_masked: str | None
+    is_active: bool
+    last_login_at: datetime | None
+    created_at: datetime
+
+
+class AuditLogRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    actor_user_id: str | None
+    action: str
+    entity_type: str
+    entity_id: str
+    payload: dict
+    created_at: datetime
 
 
 class PasswordResetRequest(BaseModel):

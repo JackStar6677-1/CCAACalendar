@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from ccaa_calendar.api import (
+    admin,
     auth,
     centers,
     diagnostics,
@@ -43,6 +44,7 @@ def create_app() -> FastAPI:
 
     app.mount("/assets", StaticFiles(directory=STATIC_DIR), name="assets")
     app.include_router(web_router)
+    app.include_router(admin.router)
     app.include_router(auth.router)
     app.include_router(health.router)
     app.include_router(diagnostics.router)

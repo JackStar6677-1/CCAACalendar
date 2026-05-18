@@ -21,6 +21,11 @@ const notificationButton = document.querySelector("#notification-button");
 const installButton = document.querySelector("#install-button");
 const calendarTitle = document.querySelector("#calendar-title");
 const agendaTitle = document.querySelector("#agenda-title");
+const viewButtons = document.querySelectorAll("[data-view-button]");
+const appSections = document.querySelectorAll("[data-view]");
+const refreshAdminButton = document.querySelector("#refresh-admin-button");
+const adminUserList = document.querySelector("#admin-user-list");
+const adminAuditList = document.querySelector("#admin-audit-list");
 
 let soundEnabled = false;
 let audioContext;
@@ -34,6 +39,7 @@ let calendarCursor = new Date();
 calendarCursor = new Date(calendarCursor.getFullYear(), calendarCursor.getMonth(), 1);
 let selectedDate = dateKey(new Date());
 let missionStripKey = "";
+let currentView = "calendar";
 
 const PLACEHOLDER_TITLES = new Set([
   "reunion centro de estudiantes",
@@ -98,12 +104,26 @@ function chirp(type = "soft") {
 function openApp() {
   shell.dataset.screen = "app";
   chirp("gold");
+  switchView(currentView);
   renderMissionStrip();
   render();
   scheduleIdle(() => {
     hydrateFromApi();
     hydrateGoogleStatus().then(() => scheduleIdle(hydrateGoogleEvents));
   });
+}
+
+function switchView(view) {
+  currentView = view;
+  viewButtons.forEach((button) => {
+    button.classList.toggle("active", button.dataset.viewButton === view);
+  });
+  appSections.forEach((section) => {
+    section.hidden = section.dataset.view !== view;
+  });
+  if (view === "admin") {
+    hydrateAdmin();
+  }
 }
 
 function setEventSaveStatus(message, tone = "neutral") {
@@ -209,6 +229,16 @@ function formatTime(event) {
 
 function canUseNotifications() {
   return "Notification" in window;
+}
+
+function formatDateTime(raw) {
+  if (!raw) return "Sin registro";
+  return new Date(raw).toLocaleString("es-CL", {
+    day: "2-digit",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 async function ensureNotificationPermission() {
@@ -609,6 +639,98 @@ async function hydrateFromApi() {
   }
 }
 
+function authHeaders() {
+  if (!authSession?.token) return {};
+  return { Authorization: `Bearer ${authSession.token}` };
+}
+
+function renderAdminUsers(users) {
+  adminUserList.replaceChildren();
+  if (!users.length) {
+    const empty = document.createElement("div");
+    empty.className = "loading-row";
+    empty.textContent = "Aun no hay administradoras activadas en esta organizacion.";
+    adminUserList.append(empty);
+    return;
+  }
+
+  users.forEach((user) => {
+    const row = document.createElement("article");
+    row.className = "admin-row";
+
+    const body = document.createElement("div");
+    const name = document.createElement("strong");
+    name.textContent = user.display_name;
+    const meta = document.createElement("span");
+    meta.textContent = `${user.rut_masked || "RUT protegido"} · ${user.role} · ${user.email}`;
+    body.append(name, meta);
+
+    const status = document.createElement("span");
+    status.className = "sync-chip";
+    status.textContent = user.is_active ? "Activo" : "Pausado";
+
+    row.append(body, status);
+    adminUserList.append(row);
+  });
+}
+
+function renderAudit(auditEntries) {
+  adminAuditList.replaceChildren();
+  if (!auditEntries.length) {
+    const empty = document.createElement("div");
+    empty.className = "loading-row";
+    empty.textContent = "Sin movimientos registrados todavia.";
+    adminAuditList.append(empty);
+    return;
+  }
+
+  auditEntries.forEach((entry) => {
+    const row = document.createElement("article");
+    row.className = "admin-row audit-row";
+
+    const body = document.createElement("div");
+    const title = document.createElement("strong");
+    title.textContent = `${entry.action} · ${entry.entity_type}`;
+    const meta = document.createElement("span");
+    meta.textContent = `${formatDateTime(entry.created_at)} · ${entry.entity_id}`;
+    body.append(title, meta);
+
+    const actor = document.createElement("span");
+    actor.className = "sync-chip";
+    actor.textContent = entry.actor_user_id ? "Con autora" : "Sistema";
+
+    row.append(body, actor);
+    adminAuditList.append(row);
+  });
+}
+
+async function hydrateAdmin() {
+  if (!adminUserList || !adminAuditList) return;
+  if (!authSession?.token) {
+    adminUserList.innerHTML = `<div class="loading-row warning">Entra con RUT y clave para ver administradoras.</div>`;
+    adminAuditList.innerHTML = `<div class="loading-row warning">La auditoria no se expone sin sesion interna.</div>`;
+    return;
+  }
+
+  adminUserList.innerHTML = `<div class="loading-row">Cargando administradoras...</div>`;
+  adminAuditList.innerHTML = `<div class="loading-row">Cargando auditoria...</div>`;
+
+  try {
+    const [usersResponse, auditResponse] = await Promise.all([
+      trackedFetch("/api/admin/users", { headers: authHeaders() }),
+      trackedFetch("/api/admin/audit?limit=30", { headers: authHeaders() }),
+    ]);
+    const users = usersResponse.ok ? await usersResponse.json() : [];
+    const audit = auditResponse.ok ? await auditResponse.json() : [];
+    renderAdminUsers(users);
+    renderAudit(audit);
+  } catch (error) {
+    adminUserList.innerHTML = `<div class="loading-row warning">No pudimos cargar administradoras.</div>`;
+    adminAuditList.innerHTML = `<div class="loading-row warning">No pudimos cargar auditoria.</div>`;
+    reportClientIssue("client.admin_load", error?.message || error, {}, error?.stack || "");
+  }
+}
+
 async function createEventFromForm(formData) {
   const localEvent = {
     id: crypto.randomUUID(),
@@ -631,6 +753,7 @@ async function createEventFromForm(formData) {
         starts_at: localEvent.starts_at,
         ends_at: localEvent.ends_at,
         description: localEvent.description,
+        created_by_user_id: authSession?.user_id || null,
       }),
     });
 
@@ -735,6 +858,12 @@ loginForm.addEventListener("submit", async (event) => {
 });
 
 demoButton?.addEventListener("click", openApp);
+
+viewButtons.forEach((button) => {
+  button.addEventListener("click", () => switchView(button.dataset.viewButton));
+});
+
+refreshAdminButton?.addEventListener("click", hydrateAdmin);
 
 soundToggle.addEventListener("click", async () => {
   soundEnabled = !soundEnabled;

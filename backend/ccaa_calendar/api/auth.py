@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, Header, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -28,6 +28,9 @@ from ccaa_calendar.settings import Settings, get_settings
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 SessionDep = Annotated[Session, Depends(get_session)]
 SettingsDep = Annotated[Settings, Depends(get_settings)]
+AuthorizationDep = Annotated[str | None, Header(alias="Authorization")]
+
+ACTIVE_SESSIONS: dict[str, str] = {}
 
 GENERIC_RESET_MESSAGE = (
     "Si los datos existen y estan activos, enviaremos instrucciones al correo asociado."
@@ -40,9 +43,9 @@ def _default_organization(session: Session) -> Organization:
         return organization
 
     organization = Organization(
-        name="Universidad Demo",
-        slug="universidad-demo",
-        domain_hint="demo.edu",
+        name="Centro de Estudiantes de Psicologia",
+        slug="ccaa-psicologia",
+        domain_hint="psicologia",
         brand_config={"public_name": "CCAACalendar"},
     )
     session.add(organization)
@@ -89,6 +92,7 @@ def _user_by_rut_hash(session: Session, organization_id: str, rut_hash_value: st
 
 
 def _session_payload(user: User, token: str) -> AuthSessionRead:
+    ACTIVE_SESSIONS[token] = user.id
     return AuthSessionRead(
         token=token,
         user_id=user.id,
@@ -97,6 +101,25 @@ def _session_payload(user: User, token: str) -> AuthSessionRead:
         role=user.role,
         rut_masked=user.rut_masked,
     )
+
+
+def current_admin_user(session: SessionDep, authorization: AuthorizationDep = None) -> User:
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Sesion interna requerida.")
+
+    token = authorization.removeprefix("Bearer ").strip()
+    user_id = ACTIVE_SESSIONS.get(token)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Sesion interna expirada.")
+
+    user = session.get(User, user_id)
+    if not user or not user.is_active:
+        raise HTTPException(status_code=401, detail="Usuario interno no disponible.")
+
+    return user
+
+
+CurrentAdminUserDep = Annotated[User, Depends(current_admin_user)]
 
 
 @router.post("/activate", response_model=AuthSessionRead, status_code=status.HTTP_201_CREATED)

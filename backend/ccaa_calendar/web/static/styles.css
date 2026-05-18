@@ -28,6 +28,10 @@
   box-sizing: border-box;
 }
 
+[hidden] {
+  display: none !important;
+}
+
 body {
   min-height: 100vh;
   margin: 0;
@@ -137,11 +141,12 @@ button {
 }
 
 .brand-panel h1 {
-  max-width: 13ch;
+  max-width: 12ch;
   margin: 1.8rem 0 1rem;
-  font-size: clamp(3rem, 8vw, 6.8rem);
-  line-height: 0.88;
-  letter-spacing: -0.09em;
+  font-size: clamp(3rem, 7vw, 6rem);
+  line-height: 0.9;
+  letter-spacing: -0.08em;
+  overflow-wrap: anywhere;
 }
 
 .brand-panel p,
@@ -551,6 +556,81 @@ nav {
 
 .metrics .gold {
   color: var(--gold);
+}
+
+.admin-board {
+  display: grid;
+  gap: 1rem;
+  border-radius: var(--radius-lg);
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.055);
+}
+
+.admin-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(18rem, 0.8fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+.admin-panel {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 22px;
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.055);
+}
+
+.admin-panel h3 {
+  margin: 0 0 0.35rem;
+  letter-spacing: -0.03em;
+}
+
+.admin-panel p {
+  margin: 0 0 1rem;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.admin-list,
+.audit-list {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.admin-row,
+.loading-row {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 18px;
+  padding: 0.85rem;
+  background: rgba(10, 8, 14, 0.28);
+}
+
+.admin-row {
+  display: flex;
+  gap: 0.8rem;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.admin-row strong,
+.admin-row span {
+  display: block;
+}
+
+.admin-row span {
+  margin-top: 0.25rem;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.admin-row .sync-chip {
+  flex: 0 0 auto;
+  margin-top: 0;
+}
+
+.loading-row.warning {
+  border-color: rgba(255, 122, 47, 0.28);
+  color: #ffccb8;
 }
 
 .content-grid {
@@ -1018,11 +1098,71 @@ nav {
   }
 
   .brand-panel {
-    min-height: 32rem;
+    min-height: auto;
+    padding: 1.35rem;
+    border-radius: 24px;
+  }
+
+  .brand-panel h1 {
+    max-width: 11ch;
+    margin: 1.2rem 0 0.85rem;
+    font-size: clamp(2.45rem, 13vw, 3.7rem);
+    line-height: 0.94;
+    letter-spacing: -0.075em;
+  }
+
+  .brand-panel p {
+    font-size: 0.98rem;
+    line-height: 1.45;
   }
 
   .orbit-mark {
-    opacity: 0.54;
+    right: 1rem;
+    top: 1rem;
+    width: 6rem;
+    opacity: 0.36;
+  }
+
+  .signal-row {
+    gap: 0.45rem;
+    margin-top: 1.2rem;
+  }
+
+  .signal-row span {
+    padding: 0.45rem 0.6rem;
+    font-size: 0.8rem;
+  }
+
+  .login-card {
+    justify-content: flex-start;
+    padding: 1.25rem;
+    border-radius: 24px;
+  }
+
+  input,
+  select,
+  textarea {
+    border-radius: 14px;
+    padding: 0.78rem 0.85rem;
+  }
+
+  .primary-action {
+    padding: 0.85rem 1rem;
+  }
+
+  .app-view {
+    gap: 0.7rem;
+  }
+
+  .sidebar {
+    order: 0;
+    gap: 0.75rem;
+    padding: 0.8rem;
+  }
+
+  .sound-card,
+  .install-card {
+    display: none;
   }
 
   .topbar,
@@ -1035,8 +1175,19 @@ nav {
   }
 
   .top-actions {
-    align-items: stretch;
-    flex-direction: column;
+    align-items: center;
+    flex-direction: row;
+    overflow-x: auto;
+    padding-bottom: 0.2rem;
+    scrollbar-width: none;
+  }
+
+  .top-actions::-webkit-scrollbar {
+    display: none;
+  }
+
+  .top-actions .compact {
+    flex: 0 0 auto;
   }
 
   .calendar-panel,
@@ -1148,5 +1299,19 @@ nav {
 
   nav {
     grid-template-columns: 1fr 1fr;
+  }
+
+  .admin-board {
+    padding: 0.75rem;
+    border-radius: 22px;
+  }
+
+  .admin-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-row {
+    align-items: flex-start;
+    flex-direction: column;
   }
 }

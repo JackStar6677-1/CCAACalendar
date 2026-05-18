@@ -376,6 +376,10 @@ def test_admin_can_activate_and_login_with_rut(tmp_path) -> None:
                 "/api/auth/login",
                 json={"rut": "21452686-7", "password": "orbit-demo-seguro"},
             )
+            admin_response = client.get(
+                "/api/admin/users",
+                headers={"Authorization": f"Bearer {login_response.json()['token']}"},
+            )
 
         assert activate_response.status_code == 201
         assert activate_response.json()["rut_masked"] == "***686-7"
@@ -383,8 +387,17 @@ def test_admin_can_activate_and_login_with_rut(tmp_path) -> None:
         assert login_response.status_code == 200
         assert login_response.json()["email"] == test_email
         assert login_response.json()["token"]
+        assert admin_response.status_code == 200
+        assert admin_response.json()[0]["rut_masked"] == "***686-7"
     finally:
         app.dependency_overrides.clear()
+
+
+def test_admin_endpoints_require_internal_session() -> None:
+    with TestClient(app) as client:
+        response = client.get("/api/admin/users")
+
+    assert response.status_code == 401
 
 
 def test_password_reset_request_uses_neutral_message(tmp_path) -> None:

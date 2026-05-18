@@ -64,6 +64,9 @@ def _apply_sqlite_dev_migrations() -> None:
         "password_reset_expires_at": "DATETIME",
         "last_login_at": "DATETIME",
     }
+    required_event_columns = {
+        "created_by_user_id": "VARCHAR(36)",
+    }
     with engine.begin() as connection:
         table_exists = connection.execute(
             text("SELECT name FROM sqlite_master WHERE type='table' AND name='users'")
@@ -77,5 +80,19 @@ def _apply_sqlite_dev_migrations() -> None:
         for column_name, column_type in required_user_columns.items():
             if column_name not in existing_columns:
                 statement = f"ALTER TABLE users ADD COLUMN {column_name} {column_type}"
+                connection.execute(text(statement))
+
+        event_table_exists = connection.execute(
+            text("SELECT name FROM sqlite_master WHERE type='table' AND name='events'")
+        ).first()
+        if not event_table_exists:
+            return
+
+        existing_event_columns = {
+            row[1] for row in connection.execute(text("PRAGMA table_info(events)")).all()
+        }
+        for column_name, column_type in required_event_columns.items():
+            if column_name not in existing_event_columns:
+                statement = f"ALTER TABLE events ADD COLUMN {column_name} {column_type}"
                 connection.execute(text(statement))
 

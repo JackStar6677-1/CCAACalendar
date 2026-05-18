@@ -146,6 +146,7 @@ class Event(TimestampMixin, Base):
     ends_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     google_calendar_id: Mapped[str | None] = mapped_column(String(260))
     google_event_id: Mapped[str | None] = mapped_column(String(260))
+    created_by_user_id: Mapped[str | None] = mapped_column(ForeignKey("users.id"))
     metadata_json: Mapped[dict] = mapped_column(JSON, default=dict)
 
     organization: Mapped[Organization] = relationship(back_populates="events")
