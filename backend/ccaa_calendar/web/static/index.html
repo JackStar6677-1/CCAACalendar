@@ -13,7 +13,7 @@
     <link rel="icon" href="/assets/orbit-icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/assets/orbit-icon.svg" />
     <link rel="preload" href="/assets/orbit-rings.svg" as="image" />
-    <link rel="stylesheet" href="/assets/styles.css?v=10" />
+    <link rel="stylesheet" href="/assets/styles.css?v=11" />
   </head>
   <body>
     <div class="ambient ambient-one"></div>
@@ -212,12 +212,68 @@
             <div class="panel-heading">
               <div>
                 <span class="eyebrow">Reservas y espacios</span>
-                <h3>Bloqueos de espacios</h3>
+                <h3>Auditorios, salas y bloqueos</h3>
               </div>
+              <button class="ghost-action compact" id="refresh-spaces-button" type="button">Actualizar</button>
             </div>
-            <article class="admin-panel">
-              <p>La vista de reservas tomará el modelo de Castel: espacios, bloqueos, solicitudes y aprobaciones.</p>
-            </article>
+            <div class="admin-grid spaces-grid">
+              <article class="admin-panel">
+                <span class="eyebrow">Espacios</span>
+                <h4>Crear espacio compartido</h4>
+                <p>Registra auditorios o salas para que cada centro vea cuándo están ocupados.</p>
+                <form class="stack-form" id="space-form">
+                  <label>
+                    Nombre
+                    <input name="name" placeholder="Auditorio principal" required minlength="2" />
+                  </label>
+                  <div class="split-fields">
+                    <label>
+                      Capacidad
+                      <input name="capacity" type="number" min="1" placeholder="120" />
+                    </label>
+                    <label>
+                      Ubicacion
+                      <input name="location" placeholder="Campus Maipu" />
+                    </label>
+                  </div>
+                  <button class="primary-action compact" type="submit">Guardar espacio</button>
+                  <p class="microcopy" id="space-save-status">Los espacios quedan visibles para coordinar reservas.</p>
+                </form>
+                <div class="admin-list" id="space-list"></div>
+              </article>
+              <article class="admin-panel">
+                <span class="eyebrow">Reserva visual</span>
+                <h4>Bloquear horario</h4>
+                <p>Si un horario choca con otra reserva, CCAACalendar lo rechaza antes de ensuciar Google.</p>
+                <form class="stack-form" id="reservation-form">
+                  <label>
+                    Espacio
+                    <select name="space_id" id="reservation-space-select" required></select>
+                  </label>
+                  <label>
+                    Actividad
+                    <input name="title" placeholder="Feria / asamblea / reunion" required minlength="2" />
+                  </label>
+                  <div class="split-fields">
+                    <label>
+                      Inicio
+                      <input name="starts_at" type="datetime-local" required />
+                    </label>
+                    <label>
+                      Termino
+                      <input name="ends_at" type="datetime-local" required />
+                    </label>
+                  </div>
+                  <label>
+                    Detalle
+                    <textarea name="description" placeholder="Centro responsable, montaje, contacto o notas"></textarea>
+                  </label>
+                  <button class="primary-action compact" type="submit">Crear reserva</button>
+                  <p class="microcopy" id="reservation-save-status">La reserva aparece en el calendario como evento de espacio.</p>
+                </form>
+                <div class="audit-list" id="reservation-list"></div>
+              </article>
+            </div>
           </section>
 
           <section class="admin-board app-section" data-view="imports" hidden>
@@ -288,6 +344,6 @@
         </form>
       </dialog>
     </main>
-    <script src="/assets/app.js?v=10" type="module"></script>
+    <script src="/assets/app.js?v=11" type="module"></script>
   </body>
 </html>

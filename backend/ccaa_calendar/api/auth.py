@@ -38,7 +38,9 @@ GENERIC_RESET_MESSAGE = (
 
 
 def _default_organization(session: Session) -> Organization:
-    organization = session.scalar(select(Organization).order_by(Organization.created_at))
+    organization = session.scalar(
+        select(Organization).where(Organization.slug == "ccaa-psicologia")
+    )
     if organization:
         return organization
 

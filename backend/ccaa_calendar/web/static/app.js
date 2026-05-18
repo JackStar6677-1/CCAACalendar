@@ -26,6 +26,14 @@ const appSections = document.querySelectorAll("[data-view]");
 const refreshAdminButton = document.querySelector("#refresh-admin-button");
 const adminUserList = document.querySelector("#admin-user-list");
 const adminAuditList = document.querySelector("#admin-audit-list");
+const refreshSpacesButton = document.querySelector("#refresh-spaces-button");
+const spaceForm = document.querySelector("#space-form");
+const spaceSaveStatus = document.querySelector("#space-save-status");
+const spaceList = document.querySelector("#space-list");
+const reservationForm = document.querySelector("#reservation-form");
+const reservationSaveStatus = document.querySelector("#reservation-save-status");
+const reservationSpaceSelect = document.querySelector("#reservation-space-select");
+const reservationList = document.querySelector("#reservation-list");
 
 let soundEnabled = false;
 let audioContext;
@@ -40,6 +48,8 @@ calendarCursor = new Date(calendarCursor.getFullYear(), calendarCursor.getMonth(
 let selectedDate = dateKey(new Date());
 let missionStripKey = "";
 let currentView = "calendar";
+let spaces = [];
+let reservations = [];
 
 const PLACEHOLDER_TITLES = new Set([
   "reunion centro de estudiantes",
@@ -124,6 +134,12 @@ function switchView(view) {
   if (view === "admin") {
     hydrateAdmin();
   }
+  if (view === "spaces") {
+    if (reservationForm) {
+      prepareReservationForm();
+    }
+    hydrateSpaces();
+  }
 }
 
 function setEventSaveStatus(message, tone = "neutral") {
@@ -134,6 +150,16 @@ function setEventSaveStatus(message, tone = "neutral") {
 function setLoginStatus(message, tone = "neutral") {
   loginStatus.textContent = message;
   loginStatus.dataset.tone = tone;
+}
+
+function setSpaceStatus(message, tone = "neutral") {
+  spaceSaveStatus.textContent = message;
+  spaceSaveStatus.dataset.tone = tone;
+}
+
+function setReservationStatus(message, tone = "neutral") {
+  reservationSaveStatus.textContent = message;
+  reservationSaveStatus.dataset.tone = tone;
 }
 
 function normalizeCategory(category) {
@@ -644,6 +670,16 @@ function authHeaders() {
   return { Authorization: `Bearer ${authSession.token}` };
 }
 
+function slugify(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80);
+}
+
 function renderAdminUsers(users) {
   adminUserList.replaceChildren();
   if (!users.length) {
@@ -729,6 +765,115 @@ async function hydrateAdmin() {
     adminAuditList.innerHTML = `<div class="loading-row warning">No pudimos cargar auditoria.</div>`;
     reportClientIssue("client.admin_load", error?.message || error, {}, error?.stack || "");
   }
+}
+
+function renderSpaces() {
+  spaceList.replaceChildren();
+  reservationSpaceSelect.replaceChildren();
+
+  if (!spaces.length) {
+    const empty = document.createElement("div");
+    empty.className = "loading-row";
+    empty.textContent = "Crea el primer espacio, por ejemplo Auditorio principal.";
+    spaceList.append(empty);
+
+    const option = document.createElement("option");
+    option.value = "";
+    option.textContent = "Sin espacios todavia";
+    reservationSpaceSelect.append(option);
+    return;
+  }
+
+  spaces.forEach((space) => {
+    const row = document.createElement("article");
+    row.className = "admin-row";
+
+    const body = document.createElement("div");
+    const title = document.createElement("strong");
+    title.textContent = space.name;
+    const meta = document.createElement("span");
+    const capacity = space.capacity ? `${space.capacity} personas` : "Capacidad sin definir";
+    meta.textContent = `${capacity} · ${space.location || "Ubicacion pendiente"}`;
+    body.append(title, meta);
+
+    const badge = document.createElement("span");
+    badge.className = "sync-chip";
+    badge.textContent = "Disponible";
+    row.append(body, badge);
+    spaceList.append(row);
+
+    const option = document.createElement("option");
+    option.value = space.id;
+    option.textContent = space.name;
+    reservationSpaceSelect.append(option);
+  });
+}
+
+function renderReservations() {
+  reservationList.replaceChildren();
+  const nextReservations = reservations
+    .filter((item) => new Date(item.ends_at).getTime() >= Date.now() - 60 * 60 * 1000)
+    .slice(0, 12);
+
+  if (!nextReservations.length) {
+    const empty = document.createElement("div");
+    empty.className = "loading-row";
+    empty.textContent = "No hay reservas próximas.";
+    reservationList.append(empty);
+    return;
+  }
+
+  nextReservations.forEach((reservation) => {
+    const row = document.createElement("article");
+    row.className = "admin-row audit-row";
+
+    const body = document.createElement("div");
+    const title = document.createElement("strong");
+    title.textContent = reservation.title;
+    const space = spaces.find((item) => item.id === reservation.space_id);
+    const meta = document.createElement("span");
+    meta.textContent = `${space?.name || "Espacio"} · ${formatTime(reservation)}`;
+    body.append(title, meta);
+
+    const badge = document.createElement("span");
+    badge.className = "sync-chip";
+    badge.textContent = reservation.google_event_id ? "Google" : "Local";
+    row.append(body, badge);
+    reservationList.append(row);
+  });
+}
+
+async function hydrateSpaces() {
+  if (!spaceList || !reservationList) return;
+  if (!organizationId) {
+    organizationId = await ensurePrimaryOrganization();
+  }
+  if (!organizationId) return;
+
+  try {
+    const [spacesResponse, reservationsResponse] = await Promise.all([
+      trackedFetch(`/api/spaces?organization_id=${organizationId}`),
+      trackedFetch(`/api/spaces/reservations?organization_id=${organizationId}`),
+    ]);
+    spaces = spacesResponse.ok ? await spacesResponse.json() : [];
+    reservations = reservationsResponse.ok ? await reservationsResponse.json() : [];
+    events = uniqueEvents([...reservations, ...events]);
+    renderSpaces();
+    renderReservations();
+    if (isAppOpen()) render();
+  } catch (error) {
+    spaceList.innerHTML = `<div class="loading-row warning">No pudimos cargar espacios.</div>`;
+    reservationList.innerHTML = `<div class="loading-row warning">No pudimos cargar reservas.</div>`;
+    reportClientIssue("client.spaces_load", error?.message || error, {}, error?.stack || "");
+  }
+}
+
+function prepareReservationForm() {
+  const base = new Date(`${selectedDate}T14:00:00`);
+  const end = new Date(base);
+  end.setHours(base.getHours() + 2);
+  reservationForm.elements.starts_at.value = toDateTimeLocalValue(base);
+  reservationForm.elements.ends_at.value = toDateTimeLocalValue(end);
 }
 
 async function createEventFromForm(formData) {
@@ -864,6 +1009,84 @@ viewButtons.forEach((button) => {
 });
 
 refreshAdminButton?.addEventListener("click", hydrateAdmin);
+refreshSpacesButton?.addEventListener("click", hydrateSpaces);
+
+spaceForm?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (!authSession?.token) {
+    setSpaceStatus("Entra con RUT y clave antes de crear espacios.", "warning");
+    return;
+  }
+  if (!organizationId) {
+    organizationId = await ensurePrimaryOrganization();
+  }
+
+  const formData = new FormData(spaceForm);
+  const name = String(formData.get("name") || "").trim();
+  const capacity = String(formData.get("capacity") || "").trim();
+  const location = String(formData.get("location") || "").trim();
+  setSpaceStatus("Guardando espacio...", "neutral");
+
+  const response = await trackedFetch("/api/spaces", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({
+      organization_id: organizationId,
+      name,
+      slug: slugify(name),
+      capacity: capacity ? Number(capacity) : null,
+      location: location || null,
+    }),
+  });
+
+  if (!response.ok) {
+    setSpaceStatus(response.status === 409 ? "Ese espacio ya existe." : "No pudimos guardar el espacio.", "warning");
+    return;
+  }
+
+  spaceForm.reset();
+  setSpaceStatus("Espacio guardado y listo para reservas.", "success");
+  await hydrateSpaces();
+});
+
+reservationForm?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (!authSession?.token) {
+    setReservationStatus("Entra con RUT y clave antes de reservar.", "warning");
+    return;
+  }
+  if (!organizationId) {
+    organizationId = await ensurePrimaryOrganization();
+  }
+
+  const formData = new FormData(reservationForm);
+  setReservationStatus("Revisando choques de horario...", "neutral");
+  const response = await trackedFetch("/api/spaces/reservations", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({
+      organization_id: organizationId,
+      space_id: formData.get("space_id"),
+      title: formData.get("title"),
+      description: formData.get("description"),
+      starts_at: new Date(formData.get("starts_at")).toISOString(),
+      ends_at: new Date(formData.get("ends_at")).toISOString(),
+    }),
+  });
+
+  if (!response.ok) {
+    const payload = await response.json().catch(() => ({}));
+    setReservationStatus(payload.detail || "No pudimos crear la reserva.", "warning");
+    return;
+  }
+
+  const reservation = await response.json();
+  events = uniqueEvents([reservation, ...events]);
+  reservationForm.reset();
+  prepareReservationForm();
+  setReservationStatus("Reserva creada y visible en calendario.", "success");
+  await hydrateSpaces();
+});
 
 soundToggle.addEventListener("click", async () => {
   soundEnabled = !soundEnabled;

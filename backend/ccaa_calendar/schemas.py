@@ -41,6 +41,26 @@ class CenterRead(BaseModel):
     is_active: bool
 
 
+class SpaceCreate(BaseModel):
+    organization_id: str
+    name: str = Field(min_length=2, max_length=180)
+    slug: str = Field(min_length=2, max_length=90, pattern=r"^[a-z0-9-]+$")
+    capacity: int | None = Field(default=None, ge=1, le=10000)
+    location: str | None = Field(default=None, max_length=180)
+
+
+class SpaceRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    organization_id: str
+    name: str
+    slug: str
+    capacity: int | None
+    location: str | None
+    is_active: bool
+
+
 class EventCreate(BaseModel):
     organization_id: str
     center_id: str | None = None
@@ -50,6 +70,16 @@ class EventCreate(BaseModel):
     description: str = ""
     category: str = Field(default="general", max_length=60)
     visibility: str = Field(default="organization", max_length=40)
+    starts_at: datetime
+    ends_at: datetime
+
+
+class SpaceReservationCreate(BaseModel):
+    organization_id: str
+    space_id: str
+    center_id: str | None = None
+    title: str = Field(min_length=2, max_length=220)
+    description: str = Field(default="", max_length=2000)
     starts_at: datetime
     ends_at: datetime
 
