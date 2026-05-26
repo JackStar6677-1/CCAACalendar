@@ -147,7 +147,7 @@ def _google_authorization_url(settings: Settings, include_gmail: bool) -> str:
 def google_authorize_url(
     current_user: AdminUserDep,
     settings: SettingsDep,
-    include_gmail: bool = Query(default=True),
+    include_gmail: bool = Query(default=False),
 ) -> dict[str, str]:
     del current_user
     return {"authorization_url": _google_authorization_url(settings, include_gmail)}
@@ -157,7 +157,7 @@ def google_authorize_url(
 def google_login(
     current_user: AdminUserDep,
     settings: SettingsDep,
-    include_gmail: bool = Query(default=True),
+    include_gmail: bool = Query(default=False),
 ) -> RedirectResponse:
     del current_user
     return RedirectResponse(_google_authorization_url(settings, include_gmail))

@@ -31,7 +31,8 @@ Esta es la forma mas limpia para empezar.
 Flujo:
 
 1. Una administradora autorizada conecta el Google del centro.
-2. La app guarda un token OAuth cifrado.
+2. En la demo local la app guarda el token OAuth en `.local/`, excluido de Git; el
+   cifrado de tokens es obligatorio antes de un despliegue productivo.
 3. Al crear un evento, la app lo inserta en Google Calendar.
 4. Si hay asistentes, se agregan en el campo `attendees`.
 5. Google envia la invitacion desde la cuenta organizadora.

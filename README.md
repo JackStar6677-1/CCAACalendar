@@ -4,7 +4,7 @@
 
 **Calendario vivo para centros de estudiantes, coordinación universitaria y reservas de espacios.**
 
-> Carpeta local: `CastelRoomKeeper` · Producto público: **CCAACalendar** · Piloto: **CE Psicología · UDLA Maipú**
+> Carpeta local: `CCAACalendar` · Producto público: **CCAACalendar** · Piloto: **CE Psicología · UDLA Maipú**
 
 ## En una mirada
 
@@ -440,6 +440,7 @@ Paleta: naranjo `#ff7a2f` · violeta `#8f5cff` · dorado `#ffd166` · fondo `#16
 - [`docs/identidad-admin-rut.md`](docs/identidad-admin-rut.md)
 - [`docs/diseno-calendario-multiusuario-y-bloqueos.md`](docs/diseno-calendario-multiusuario-y-bloqueos.md)
 - [`docs/evaluacion-insforge.md`](docs/evaluacion-insforge.md)
+- [`docs/despliegue-demo-google-cloudflare.md`](docs/despliegue-demo-google-cloudflare.md)
 
 ## Licencia
 

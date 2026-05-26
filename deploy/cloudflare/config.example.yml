@@ -1,0 +1,9 @@
+# Copiar fuera del repo a %USERPROFILE%\.cloudflared\ccaa-calendar.yml.
+# El UUID y el archivo JSON se generan con `cloudflared tunnel create`.
+tunnel: REEMPLAZAR_CON_UUID_DEL_TUNEL
+credentials-file: C:\Users\TU_USUARIO\.cloudflared\REEMPLAZAR_CON_UUID_DEL_TUNEL.json
+
+ingress:
+  - hostname: ccaa.drakescraft.cl
+    service: http://127.0.0.1:8000
+  - service: http_status:404

@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     google_client_secret: str = ""
     google_redirect_uri: str = "http://localhost:8000/api/integrations/google/callback"
     google_calendar_scopes: str = "https://www.googleapis.com/auth/calendar.events"
-    google_gmail_scopes: str = "https://www.googleapis.com/auth/gmail.send"
+    google_gmail_scopes: str = ""
     google_center_account_email: str = ""
     google_calendar_id: str = "primary"
     google_client_secret_file: str = ".local/google_oauth_client_secret.json"
