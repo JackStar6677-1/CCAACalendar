@@ -671,13 +671,94 @@ def test_academic_import_preview_and_commit(tmp_path) -> None:
             commit = client.post(
                 f"/api/imports/academic/{preview.json()['import_id']}/commit",
                 headers=headers,
-                json={"selected_indexes": [0], "notify_subscribers": False},
+                json={
+                    "candidates": [
+                        {
+                            **preview.json()["candidates"][0],
+                            "title": f"{import_title} editado",
+                            "starts_at": "2026-03-12T13:30:00+00:00",
+                            "ends_at": "2026-03-12T14:30:00+00:00",
+                            "category": "centro",
+                        }
+                    ],
+                    "notify_subscribers": False,
+                },
             )
 
         assert preview.status_code == 201
         assert preview.json()["candidates"][0]["title"] == import_title
         assert commit.status_code == 200
         assert commit.json()["imported_events"] == 1
+        with SessionLocal() as session:
+            event = session.get(Event, commit.json()["event_ids"][0])
+            assert event
+            assert event.title == f"{import_title} editado"
+            assert event.category == "centro"
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_admin_can_update_other_user_role_and_status(tmp_path) -> None:
+    roster = tmp_path / "admins.json"
+    roster.write_text(
+        json.dumps(
+            {
+                "admins": [
+                    {
+                        "rut": "21.452.686-7",
+                        "email": f"admin-{uuid.uuid4()}@example.com",
+                        "display_name": "Admin Principal",
+                        "role": "admin",
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    app.dependency_overrides[get_settings] = lambda: Settings(
+        admin_roster_path=str(roster),
+        admin_identity_pepper=f"admin-pepper-{tmp_path.name}-{uuid.uuid4()}",
+    )
+
+    try:
+        with TestClient(app) as client:
+            session_response = client.post(
+                "/api/auth/activate",
+                json={"rut": "21.452.686-7", "password": "orbit-demo-seguro"},
+            )
+            admin_user_id = session_response.json()["user_id"]
+            token = session_response.json()["token"]
+            headers = {"Authorization": f"Bearer {token}"}
+
+            with SessionLocal() as session:
+                admin_user = session.get(User, admin_user_id)
+                assert admin_user
+                target = User(
+                    organization_id=admin_user.organization_id,
+                    email=f"target-{uuid.uuid4()}@example.com",
+                    display_name="Editora Operativa",
+                    role="viewer",
+                    is_active=True,
+                    email_notifications_enabled=True,
+                )
+                session.add(target)
+                session.commit()
+                target_id = target.id
+
+            response = client.patch(
+                f"/api/admin/users/{target_id}",
+                headers=headers,
+                json={
+                    "role": "editor",
+                    "is_active": False,
+                    "email_notifications_enabled": False,
+                },
+            )
+
+        assert response.status_code == 200
+        assert response.json()["role"] == "editor"
+        assert response.json()["is_active"] is False
+        assert response.json()["email_notifications_enabled"] is False
     finally:
         app.dependency_overrides.clear()
 

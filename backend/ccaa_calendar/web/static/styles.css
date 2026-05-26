@@ -691,9 +691,25 @@ nav {
   background: rgba(10, 8, 14, 0.28);
 }
 
-.import-candidate input {
+.import-candidate > input {
   width: auto;
   margin-top: 0.25rem;
+}
+
+.import-candidate-editor {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.import-date-grid,
+.admin-user-controls {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.55rem;
+}
+
+.import-candidate textarea {
+  min-height: 4.6rem;
 }
 
 .import-candidate strong,
@@ -739,6 +755,37 @@ nav {
   gap: 0.8rem;
   align-items: center;
   justify-content: space-between;
+}
+
+.admin-user-card {
+  align-items: stretch;
+}
+
+.admin-user-controls {
+  align-items: center;
+  min-width: min(100%, 28rem);
+}
+
+.compact-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.compact-check input {
+  width: auto;
+  accent-color: var(--orange);
+}
+
+.admin-row[data-tone="success"] {
+  border-color: rgba(58, 211, 159, 0.45);
+}
+
+.admin-row[data-tone="warning"] {
+  border-color: rgba(255, 91, 125, 0.45);
 }
 
 .admin-row strong,
@@ -1445,6 +1492,12 @@ nav {
   .admin-row {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .import-date-grid,
+  .admin-user-controls {
+    grid-template-columns: 1fr;
+    width: 100%;
   }
 }
 

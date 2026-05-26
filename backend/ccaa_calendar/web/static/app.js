@@ -460,6 +460,10 @@ function toDateTimeLocalValue(date) {
   return `${year}-${month}-${day}T${hour}:${minute}`;
 }
 
+function candidateDateValue(raw) {
+  return toDateTimeLocalValue(new Date(raw));
+}
+
 function prepareEventFormForSelectedDay() {
   const base = new Date(`${selectedDate}T10:00:00`);
   const end = new Date(base);
@@ -844,23 +848,86 @@ function renderAdminUsers(users) {
 
   users.forEach((user) => {
     const row = document.createElement("article");
-    row.className = "admin-row";
+    row.className = "admin-row admin-user-card";
 
     const body = document.createElement("div");
     const name = document.createElement("strong");
     name.textContent = user.display_name;
     const meta = document.createElement("span");
     const mailPref = user.email_notifications_enabled ? "Correos ON" : "Correos OFF";
-    meta.textContent = `${user.rut_masked || "RUT protegido"} · ${user.role} · ${user.email} · ${mailPref}`;
+    meta.textContent =
+      `${user.rut_masked || "RUT protegido"} · ${user.email} · ${mailPref}`;
     body.append(name, meta);
 
-    const status = document.createElement("span");
-    status.className = "sync-chip";
-    status.textContent = user.is_active ? "Activo" : "Pausado";
+    const controls = document.createElement("div");
+    controls.className = "admin-user-controls";
 
-    row.append(body, status);
+    const roleSelect = document.createElement("select");
+    roleSelect.dataset.field = "role";
+    ["viewer", "editor", "admin", "owner"].forEach((role) => {
+      const option = document.createElement("option");
+      option.value = role;
+      option.textContent = role;
+      option.selected = user.role === role;
+      roleSelect.append(option);
+    });
+
+    const activeLabel = document.createElement("label");
+    activeLabel.className = "compact-check";
+    const activeInput = document.createElement("input");
+    activeInput.type = "checkbox";
+    activeInput.dataset.field = "is_active";
+    activeInput.checked = Boolean(user.is_active);
+    activeLabel.append(activeInput, document.createTextNode(" Activa"));
+
+    const mailLabel = document.createElement("label");
+    mailLabel.className = "compact-check";
+    const mailInput = document.createElement("input");
+    mailInput.type = "checkbox";
+    mailInput.dataset.field = "email_notifications_enabled";
+    mailInput.checked = Boolean(user.email_notifications_enabled);
+    mailLabel.append(mailInput, document.createTextNode(" Correos"));
+
+    const save = document.createElement("button");
+    save.className = "ghost-action compact";
+    save.type = "button";
+    save.textContent = "Guardar";
+    save.addEventListener("click", () => updateAdminUser(user.id, row));
+
+    controls.append(roleSelect, activeLabel, mailLabel, save);
+
+    row.append(body, controls);
     adminUserList.append(row);
   });
+}
+
+async function updateAdminUser(userId, row) {
+  const role = row.querySelector('[data-field="role"]').value;
+  const isActive = row.querySelector('[data-field="is_active"]').checked;
+  const emailNotifications = row.querySelector('[data-field="email_notifications_enabled"]').checked;
+  const button = row.querySelector("button");
+  button.disabled = true;
+
+  const response = await trackedFetch(`/api/admin/users/${userId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({
+      role,
+      is_active: isActive,
+      email_notifications_enabled: emailNotifications,
+    }),
+  });
+
+  button.disabled = false;
+  if (!response.ok) {
+    const payload = await response.json().catch(() => ({}));
+    row.dataset.tone = "warning";
+    button.textContent = payload.detail || "No guardado";
+    return;
+  }
+  row.dataset.tone = "success";
+  button.textContent = "Guardado";
+  await hydrateAdmin();
 }
 
 function renderAudit(auditEntries) {
@@ -1038,24 +1105,60 @@ function renderAcademicImportPreview(preview) {
   }
 
   preview.candidates.forEach((candidate, index) => {
-    const item = document.createElement("label");
+    const item = document.createElement("article");
     item.className = "import-candidate";
+    item.dataset.index = String(index);
+    item.dataset.sourceLine = candidate.source_line;
+    item.dataset.confidence = String(candidate.confidence);
 
     const checkbox = document.createElement("input");
     checkbox.type = "checkbox";
     checkbox.value = String(index);
     checkbox.checked = true;
+    checkbox.dataset.field = "selected";
 
-    const body = document.createElement("span");
-    const title = document.createElement("strong");
-    title.textContent = candidate.title;
+    const body = document.createElement("div");
+    body.className = "import-candidate-editor";
+
+    const title = document.createElement("input");
+    title.dataset.field = "title";
+    title.value = candidate.title;
+    title.maxLength = 220;
+    title.setAttribute("aria-label", "Titulo del hito importado");
+
+    const dateGrid = document.createElement("div");
+    dateGrid.className = "import-date-grid";
+    const startsAt = document.createElement("input");
+    startsAt.type = "datetime-local";
+    startsAt.dataset.field = "starts_at";
+    startsAt.value = candidateDateValue(candidate.starts_at);
+    const endsAt = document.createElement("input");
+    endsAt.type = "datetime-local";
+    endsAt.dataset.field = "ends_at";
+    endsAt.value = candidateDateValue(candidate.ends_at);
+    const category = document.createElement("select");
+    category.dataset.field = "category";
+    ["academico", "centro", "espacio", "feriado"].forEach((value) => {
+      const option = document.createElement("option");
+      option.value = value;
+      option.textContent = value;
+      option.selected = candidate.category === value;
+      category.append(option);
+    });
+    dateGrid.append(startsAt, endsAt, category);
+
+    const description = document.createElement("textarea");
+    description.dataset.field = "description";
+    description.value = candidate.description;
+    description.maxLength = 2000;
+    description.setAttribute("aria-label", "Descripcion del hito importado");
+
     const meta = document.createElement("small");
     meta.textContent =
-      `${formatDateTime(candidate.starts_at)} · ${candidate.category} · ` +
-      `${Math.round(candidate.confidence * 100)}% confianza`;
+      `Fuente original · ${Math.round(candidate.confidence * 100)}% confianza`;
     const source = document.createElement("em");
     source.textContent = candidate.source_line;
-    body.append(title, meta, source);
+    body.append(title, dateGrid, description, meta, source);
 
     item.append(checkbox, body);
     academicImportCandidates.append(item);
@@ -1090,13 +1193,46 @@ async function previewAcademicImport(formData) {
 
 async function commitAcademicImport() {
   if (!currentAcademicImport?.import_id) return;
-  const selectedIndexes = [...academicImportCandidates.querySelectorAll("input:checked")].map(
-    (input) => Number(input.value),
+  const selectedCards = [...academicImportCandidates.querySelectorAll(".import-candidate")].filter(
+    (card) => card.querySelector('[data-field="selected"]').checked,
   );
-  if (!selectedIndexes.length) {
+  if (!selectedCards.length) {
     setImportStatus("Selecciona al menos un hito antes de aprobar.", "warning");
     return;
   }
+
+  const editedCandidates = selectedCards.map((card) => {
+    const startsAt = new Date(card.querySelector('[data-field="starts_at"]').value);
+    const endsAt = new Date(card.querySelector('[data-field="ends_at"]').value);
+    return {
+      title: card.querySelector('[data-field="title"]').value.trim(),
+      starts_at_date: startsAt,
+      ends_at_date: endsAt,
+      starts_at: "",
+      ends_at: "",
+      category: card.querySelector('[data-field="category"]').value,
+      description: card.querySelector('[data-field="description"]').value.trim(),
+      source_line: card.dataset.sourceLine,
+      confidence: Number(card.dataset.confidence || "0.65"),
+    };
+  });
+
+  const invalidCandidate = editedCandidates.find(
+    (candidate) =>
+      !candidate.title || Number.isNaN(new Date(candidate.starts_at).getTime()) ||
+      Number.isNaN(new Date(candidate.ends_at).getTime()) ||
+      new Date(candidate.ends_at) <= new Date(candidate.starts_at),
+  );
+  if (invalidCandidate) {
+    setImportStatus("Revisa titulos y horarios: cada hito debe terminar despues de iniciar.", "warning");
+    return;
+  }
+  editedCandidates.forEach((candidate) => {
+    candidate.starts_at = candidate.starts_at_date.toISOString();
+    candidate.ends_at = candidate.ends_at_date.toISOString();
+    delete candidate.starts_at_date;
+    delete candidate.ends_at_date;
+  });
 
   setImportStatus("Creando eventos academicos...", "neutral");
   const response = await trackedFetch(
@@ -1106,7 +1242,7 @@ async function commitAcademicImport() {
       headers: { "Content-Type": "application/json", ...authHeaders() },
       body: JSON.stringify({
         created_by_user_id: authSession?.user_id || null,
-        selected_indexes: selectedIndexes,
+        candidates: editedCandidates,
         notify_subscribers: false,
       }),
     },

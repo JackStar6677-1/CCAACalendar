@@ -129,6 +129,7 @@ class AcademicImportPreviewRead(BaseModel):
 class AcademicImportCommitRequest(BaseModel):
     created_by_user_id: str | None = None
     selected_indexes: list[int] | None = None
+    candidates: list[AcademicImportCandidateRead] | None = None
     notify_subscribers: bool = False
 
 
@@ -217,6 +218,12 @@ class AdminUserRead(BaseModel):
     email_notifications_enabled: bool
     last_login_at: datetime | None
     created_at: datetime
+
+
+class AdminUserUpdate(BaseModel):
+    role: str | None = Field(default=None, pattern=r"^(viewer|editor|admin|owner)$")
+    is_active: bool | None = None
+    email_notifications_enabled: bool | None = None
 
 
 class EventNotificationSummary(BaseModel):

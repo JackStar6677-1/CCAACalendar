@@ -97,14 +97,11 @@ def commit_academic_import(
     if academic_import.import_status == "committed":
         raise HTTPException(status_code=409, detail="Esta importacion ya fue aprobada.")
 
-    selected_indexes = payload.selected_indexes
     candidates = academic_import.extracted_payload.get("candidates", [])
-    indexes = selected_indexes if selected_indexes is not None else list(range(len(candidates)))
-    valid_indexes = [index for index in indexes if 0 <= index < len(candidates)]
+    commit_candidates = _commit_candidates(payload, candidates)
 
     created_events: list[Event] = []
-    for index in valid_indexes:
-        candidate = candidates[index]
+    for candidate in commit_candidates:
         duplicate = _existing_imported_event(session, academic_import.organization_id, candidate)
         if duplicate:
             continue
@@ -140,7 +137,8 @@ def commit_academic_import(
             entity_id=academic_import.id,
             payload={
                 "created_events": len(created_events),
-                "selected_candidates": len(valid_indexes),
+                "selected_candidates": len(commit_candidates),
+                "edited_before_commit": bool(payload.candidates),
                 "notify_subscribers": payload.notify_subscribers,
             },
         )
@@ -150,9 +148,25 @@ def commit_academic_import(
     return AcademicImportCommitRead(
         import_id=academic_import.id,
         imported_events=len(created_events),
-        skipped_candidates=len(valid_indexes) - len(created_events),
+        skipped_candidates=len(commit_candidates) - len(created_events),
         event_ids=[event.id for event in created_events],
     )
+
+
+def _commit_candidates(
+    payload: AcademicImportCommitRequest,
+    stored_candidates: list[dict],
+) -> list[dict]:
+    """Resuelve que hitos entran al calendario: editados por UI o originales."""
+    if payload.candidates is not None:
+        return [candidate.model_dump(mode="json") for candidate in payload.candidates]
+
+    indexes = (
+        payload.selected_indexes
+        if payload.selected_indexes is not None
+        else list(range(len(stored_candidates)))
+    )
+    return [stored_candidates[index] for index in indexes if 0 <= index < len(stored_candidates)]
 
 
 def _existing_imported_event(
