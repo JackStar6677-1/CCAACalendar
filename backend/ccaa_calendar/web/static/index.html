@@ -12,59 +12,63 @@
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="icon" href="/assets/orbit-icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/assets/orbit-icon.svg" />
-    <link rel="stylesheet" href="/assets/styles.css?v=21" />
+    <link rel="stylesheet" href="/assets/styles.css?v=29" />
   </head>
   <body class="theme-workspace">
     <main class="shell" data-screen="login">
       <section class="login-view" aria-labelledby="login-title">
         <div class="brand-panel">
-          <span class="eyebrow">Centro de Estudiantes · UDLA Maipú · Psicología</span>
-          <div class="brand-hero">
+          <header class="brand-header">
             <div class="brand-logo" aria-hidden="true">
               <img src="/assets/orbit-icon.svg" alt="" width="72" height="72" decoding="async" />
             </div>
             <div class="brand-copy">
               <h1 id="login-title">CCAACalendar</h1>
-              <p class="brand-lead">
-                Calendario del Centro de Estudiantes de Psicología (UDLA, campus Maipú) para coordinar
-                actividades, reservas y fechas del centro. Cada integrante entra con su RUT; el correo
-                oficial del centro sincroniza con Google Calendar.
-              </p>
+              <p class="brand-campus">Centro de Estudiantes de Psicología · UDLA Maipú</p>
             </div>
-          </div>
-          <div class="center-email-card" aria-label="Correo oficial del centro">
-            <span class="eyebrow">Calendario del centro</span>
-            <strong id="bootstrap-official-email">Correo oficial pendiente</strong>
-            <p id="bootstrap-official-detail">
-              Configura el correo institucional en el servidor para sincronizar con Google Calendar.
+          </header>
+          <div class="brand-intro">
+            <h2>Calendario oficial, sin compartir cuentas.</h2>
+            <p class="brand-lead">
+              Organiza actividades, reservas y fechas académicas desde un solo calendario del
+              centro. Cada integrante opera con su propia identidad.
             </p>
           </div>
-          <div class="signal-row" aria-label="Modulos del piloto">
-            <span>Psicología UDLA</span>
-            <span>Auditorios</span>
-            <span>Feriados Chile</span>
-          </div>
+          <section class="access-guide" aria-labelledby="access-guide-title">
+            <h3 id="access-guide-title">Como funciona</h3>
+            <ol>
+              <li><strong>Tu RUT identifica tu cuenta</strong><span>Cada cambio queda asociado a quien lo realizó.</span></li>
+              <li><strong>El centro conecta un solo Google Calendar</strong><span>Nunca necesitas la clave del correo oficial.</span></li>
+              <li><strong>Cada cambio queda registrado</strong><span>Eventos, reservas y edición quedan en auditoría.</span></li>
+            </ol>
+          </section>
         </div>
 
         <section class="login-card" id="auth-panel" data-step="lookup" aria-live="polite">
-          <div id="auth-step-lookup">
-            <span class="eyebrow">Acceso interno</span>
-            <h2>Identificate con tu RUT</h2>
+          <header class="auth-header">
+            <span class="eyebrow">Tu acceso es personal</span>
             <p>
-              Tu correo personal sirve para avisos y recuperar clave. El correo del centro solo
-              sincroniza el calendario oficial (se conecta desde el panel, no aqui).
+              Usa tus propios datos de CCAACalendar. La cuenta Google del centro no sirve para
+              iniciar sesión.
+            </p>
+          </header>
+          <div id="auth-step-lookup">
+            <span class="step-label">Paso 1 de 2 · Verificar acceso</span>
+            <h2>Ingresa tu RUT</h2>
+            <p>
+              Primero revisaremos si tu RUT está habilitado por la directiva y si ya tienes clave.
             </p>
             <form id="lookup-form">
               <label>
-                RUT
+                RUT de integrante autorizada
                 <input name="rut" placeholder="12.345.678-9" autocomplete="username" required />
               </label>
-              <button class="primary-action" type="submit">Continuar</button>
+              <button class="primary-action" type="submit">Verificar acceso</button>
             </form>
           </div>
           <div id="auth-step-login" hidden>
-            <span class="eyebrow">Bienvenida de vuelta</span>
-            <h2>Ingresa tu clave</h2>
+            <span class="step-label">Paso 2 de 2 · Cuenta activa</span>
+            <h2>Ingresa con tu RUT y clave</h2>
             <p id="login-rut-summary">RUT autorizado</p>
             <form id="login-form">
               <input type="hidden" name="rut" />
@@ -78,8 +82,8 @@
             </form>
           </div>
           <div id="auth-step-activate" hidden>
-            <span class="eyebrow">Primera vez</span>
-            <h2>Crea tu cuenta</h2>
+            <span class="step-label">Paso 2 de 2 · Primera vez</span>
+            <h2>Crea tu acceso personal</h2>
             <p id="activate-rut-summary">RUT habilitado</p>
             <form id="activate-form" class="stack-form">
               <input type="hidden" name="rut" />
@@ -90,7 +94,7 @@
               <label>Correo personal<input name="email" type="email" autocomplete="email" required /></label>
               <label>Clave<input name="password" type="password" autocomplete="new-password" required minlength="8" /></label>
               <label>Repetir clave<input name="password_confirm" type="password" autocomplete="new-password" required minlength="8" /></label>
-              <label class="check-option"><input name="understand_center_email" type="checkbox" required /> Entiendo que el calendario del centro es otra cuenta.</label>
+              <label class="check-option"><input name="understand_center_email" type="checkbox" required /> Entiendo que Google conecta el calendario oficial, no mi acceso.</label>
               <button class="primary-action" type="submit">Crear cuenta y entrar</button>
               <button class="ghost-action" type="button" data-auth-back>Volver</button>
             </form>
@@ -114,9 +118,24 @@
             <p id="blocked-message">Tu RUT no figura en la lista del centro. Contacta a la directiva.</p>
             <button class="ghost-action" type="button" data-auth-back>Volver a intentar</button>
           </div>
-          <button class="ghost-action" type="button" id="demo-button" hidden>Vista invitada</button>
+          <button class="ghost-action public-calendar-action" type="button" id="demo-button">
+            Ver calendario en modo lectura
+          </button>
           <p class="microcopy" id="login-status">
-            Ingresa tu RUT para saber si debes crear cuenta o solo iniciar sesion.
+            Ingresa tu RUT para continuar de forma segura.
+          </p>
+          <div class="center-email-card" aria-label="Estado del calendario oficial">
+            <span class="status-dot" id="official-status-dot" aria-hidden="true"></span>
+            <div>
+              <span class="eyebrow">Calendario oficial del centro</span>
+              <strong id="bootstrap-official-email">Correo oficial pendiente</strong>
+              <p id="bootstrap-official-detail">
+                La directiva conecta Google desde el panel administrativo.
+              </p>
+            </div>
+          </div>
+          <p class="auth-footnote">
+            ¿No estás habilitada? Puedes consultar fechas; la directiva debe agregarte para editar.
           </p>
         </section>
       </section>
@@ -130,12 +149,17 @@
               <span>CE Psicología · UDLA Maipú</span>
             </div>
           </div>
+          <div class="session-card" aria-label="Identidad de la sesión">
+            <span>Sesión interna</span>
+            <strong id="session-user-name">Cuenta con RUT</strong>
+            <small id="session-user-role">Acceso personal</small>
+          </div>
           <nav aria-label="Navegacion principal">
-            <button class="nav-item active" type="button" data-view-button="calendar">Calendario</button>
-            <button class="nav-item" type="button" data-view-button="admin">Admin</button>
-            <button class="nav-item" type="button" data-view-button="spaces">Reservas</button>
-            <button class="nav-item" type="button" data-view-button="imports">Importar</button>
-            <button class="nav-item" type="button" data-view-button="profile">Mi perfil</button>
+            <button class="nav-item active" type="button" data-view-button="calendar"><strong>Calendario</strong><span>Agenda oficial</span></button>
+            <button class="nav-item" type="button" data-view-button="admin" data-requires-admin><strong>Usuarios</strong><span>Roles y auditoría</span></button>
+            <button class="nav-item" type="button" data-view-button="spaces" data-requires-edit><strong>Espacios</strong><span>Reservas</span></button>
+            <button class="nav-item" type="button" data-view-button="imports" data-requires-admin><strong>Importar fechas</strong><span>Documento anual</span></button>
+            <button class="nav-item" type="button" data-view-button="profile" data-requires-session><strong>Mi perfil</strong><span>Avisos por correo</span></button>
           </nav>
           <div class="sound-card" hidden>
             <span>Sonidos</span>
@@ -149,21 +173,21 @@
         <section class="workspace">
           <header class="topbar app-section" data-view="calendar">
             <div>
-              <h2>Calendario</h2>
-              <p class="topbar-sub">Centro de Estudiantes de Psicología · UDLA Maipú</p>
+              <h2>Calendario oficial del centro</h2>
+              <p class="topbar-sub">Psicología · UDLA Maipú · actividades y reservas compartidas</p>
             </div>
             <div class="top-actions">
               <button class="ghost-action compact" id="prev-month-button" type="button" aria-label="Mes anterior">‹</button>
               <button class="ghost-action compact" id="today-button" type="button">Hoy</button>
               <button class="ghost-action compact" id="next-month-button" type="button" aria-label="Mes siguiente">›</button>
               <button class="ghost-action compact" id="notification-button" type="button">Alertas</button>
-              <button class="primary-action compact" id="new-event-button" type="button">+ Evento</button>
+              <button class="primary-action compact" id="new-event-button" type="button">Crear evento</button>
             </div>
           </header>
 
           <section class="status-bar app-section" data-view="calendar" aria-label="Estado">
             <div class="status-item">
-              <span>Eventos del mes</span>
+              <span>Actividades del mes</span>
               <strong id="metric-events">0</strong>
             </div>
             <div class="status-item">
@@ -171,7 +195,7 @@
               <strong id="metric-holidays">0</strong>
             </div>
             <div class="status-item status-google" id="mission-strip">
-              <span>Google del centro</span>
+              <span>Google Calendar oficial</span>
               <strong id="google-status-badge">...</strong>
               <p class="status-detail" id="google-status-detail"></p>
               <button class="status-link" id="google-status-connect-button" type="button">Conectar</button>
@@ -182,6 +206,7 @@
             <section class="calendar-panel" aria-labelledby="calendar-title">
               <div class="panel-heading">
                 <div>
+                  <span class="eyebrow">Vista mensual</span>
                   <h3 id="calendar-title">Calendario</h3>
                 </div>
                 <div class="calendar-legend">
@@ -200,12 +225,16 @@
 
             <aside class="agenda-panel" aria-labelledby="agenda-title">
               <div class="panel-heading panel-heading-compact">
-                <h3 id="agenda-title">Dia seleccionado</h3>
+                <div>
+                  <span class="eyebrow">Agenda del dia</span>
+                  <h3 id="agenda-title">Dia seleccionado</h3>
+                </div>
               </div>
               <div class="agenda-list" id="agenda-list"></div>
               <div class="google-panel google-panel-compact">
-                <p>Una cuenta Google del centro. Cada integrante entra con su RUT.</p>
-                <button class="google-link" id="google-connect-button" type="button">Conectar calendario y correo del centro</button>
+                <strong>Sincronización oficial</strong>
+                <p>Solo la directiva conecta la cuenta Google del centro. Las integrantes usan su RUT.</p>
+                <button class="google-link" id="google-connect-button" type="button">Conectar Google oficial</button>
               </div>
             </aside>
           </div>
@@ -433,6 +462,6 @@
         </form>
       </dialog>
     </main>
-    <script src="/assets/app.js?v=21" type="module"></script>
+    <script src="/assets/app.js?v=29" type="module"></script>
   </body>
 </html>

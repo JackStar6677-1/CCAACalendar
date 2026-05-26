@@ -15,6 +15,7 @@ const blockedMessage = document.querySelector("#blocked-message");
 const passwordResetButton = document.querySelector("#password-reset-button");
 const bootstrapOfficialEmail = document.querySelector("#bootstrap-official-email");
 const bootstrapOfficialDetail = document.querySelector("#bootstrap-official-detail");
+const officialStatusDot = document.querySelector("#official-status-dot");
 const demoButton = document.querySelector("#demo-button");
 const loginStatus = document.querySelector("#login-status");
 const soundToggle = document.querySelector("#sound-toggle");
@@ -41,7 +42,12 @@ const notificationButton = document.querySelector("#notification-button");
 const installButton = document.querySelector("#install-button");
 const calendarTitle = document.querySelector("#calendar-title");
 const agendaTitle = document.querySelector("#agenda-title");
+const sessionUserName = document.querySelector("#session-user-name");
+const sessionUserRole = document.querySelector("#session-user-role");
 const viewButtons = document.querySelectorAll("[data-view-button]");
+const adminViewButtons = document.querySelectorAll("[data-requires-admin]");
+const editViewButtons = document.querySelectorAll("[data-requires-edit]");
+const sessionViewButtons = document.querySelectorAll("[data-requires-session]");
 const appSections = document.querySelectorAll("[data-view]");
 const refreshAdminButton = document.querySelector("#refresh-admin-button");
 const adminUserList = document.querySelector("#admin-user-list");
@@ -145,7 +151,9 @@ function chirp(type = "soft") {
 
 function openApp() {
   shell.dataset.screen = "app";
+  configureVisiblePermissions();
   switchView(currentView);
+  window.scrollTo({ top: 0, left: 0, behavior: "instant" });
   syncNotificationButtonState();
   render();
   scheduleIdle(() => {
@@ -154,6 +162,31 @@ function openApp() {
       if (googleConnected) scheduleIdle(hydrateGoogleEvents);
     });
   });
+}
+
+function configureVisiblePermissions() {
+  const isAdmin = ["admin", "owner"].includes(authSession?.role);
+  const canEdit = ["editor", "admin", "owner"].includes(authSession?.role);
+  shell.dataset.access = authSession?.token ? "internal" : "public";
+  adminViewButtons.forEach((button) => {
+    button.hidden = !isAdmin;
+  });
+  editViewButtons.forEach((button) => {
+    button.hidden = !canEdit;
+  });
+  sessionViewButtons.forEach((button) => {
+    button.hidden = !authSession?.token;
+  });
+  googleStatusConnectButton.hidden = !isAdmin;
+  googleConnectButton.hidden = !isAdmin;
+  newEventButton.hidden = !canEdit;
+  sessionUserName.textContent = authSession?.display_name || "Vista de consulta";
+  sessionUserRole.textContent = authSession?.role
+    ? `Rol: ${authSession.role} · acceso con RUT`
+    : "Sin sesión interna";
+  if ((!isAdmin && ["admin", "imports"].includes(currentView)) || (!canEdit && currentView === "spaces")) {
+    currentView = "calendar";
+  }
 }
 
 function switchView(view) {
@@ -1541,6 +1574,7 @@ async function hydrateLoginBootstrap() {
     if (!response.ok) return;
     const bootstrap = await response.json();
     if (bootstrap.official_email_configured) {
+      officialStatusDot.classList.add("is-ready");
       bootstrapOfficialEmail.textContent = "Cuenta oficial configurada";
       const googleNote = bootstrap.google_token_present
         ? "Google Calendar del centro conectado."
@@ -1548,6 +1582,7 @@ async function hydrateLoginBootstrap() {
       bootstrapOfficialDetail.textContent = `${bootstrap.center_name}. ${googleNote}`;
       return;
     }
+    officialStatusDot.classList.remove("is-ready");
     bootstrapOfficialEmail.textContent = "Correo oficial pendiente";
     bootstrapOfficialDetail.textContent =
       "Define la cuenta oficial en el servidor para habilitar el calendario institucional.";

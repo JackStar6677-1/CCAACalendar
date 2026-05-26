@@ -68,7 +68,8 @@ def test_web_home_loads() -> None:
 
     assert response.status_code == 200
     assert "CCAACalendar" in response.text
-    assert "correo del centro solo" in response.text
+    assert "La cuenta Google del centro no sirve para" in response.text
+    assert "Tu acceso es personal" in response.text
     assert styles_response.status_code == 200
     assert manifest_response.status_code == 200
 

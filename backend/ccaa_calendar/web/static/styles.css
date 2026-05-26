@@ -1712,3 +1712,623 @@ body.theme-workspace {
     justify-content: flex-end;
   }
 }
+
+/* --- CCAACalendar v29: interfaz orientada a comprension y operacion diaria --- */
+.theme-workspace {
+  --ink: #120c19;
+  --ink-soft: #191221;
+  --panel: #20182a;
+  --panel-strong: #292033;
+  --line: rgba(232, 191, 114, 0.16);
+  --text: #fff4e8;
+  --muted: #c2b2c8;
+  --orange: #f47b45;
+  --orange-soft: #ffad70;
+  --gold: #e8bf72;
+  --green: #66c5a4;
+  --radius-xl: 28px;
+  --radius-lg: 20px;
+  --radius-md: 13px;
+  --shadow: 0 20px 55px rgba(5, 3, 8, 0.24);
+  font-family: "Aptos", "Trebuchet MS", sans-serif;
+}
+
+body.theme-workspace {
+  background:
+    radial-gradient(circle at 12% 20%, rgba(244, 123, 69, 0.12), transparent 29rem),
+    radial-gradient(circle at 84% 18%, rgba(112, 74, 200, 0.13), transparent 30rem),
+    var(--ink);
+}
+
+.theme-workspace h1,
+.theme-workspace h2,
+.theme-workspace h3,
+.theme-workspace h4,
+.theme-workspace .mini-brand strong {
+  font-family: "Aptos Display", "Bahnschrift", "Trebuchet MS", sans-serif;
+}
+
+.theme-workspace .shell {
+  max-width: 1480px;
+  margin: 0 auto;
+  padding: clamp(0.8rem, 2.4vw, 1.7rem);
+}
+
+.theme-workspace .login-view {
+  min-height: calc(100vh - clamp(1.6rem, 4.8vw, 3.4rem));
+  grid-template-columns: minmax(31rem, 1.08fr) minmax(22rem, 0.82fr);
+  gap: clamp(1rem, 2.4vw, 1.5rem);
+}
+
+.theme-workspace .brand-panel,
+.theme-workspace .login-card {
+  border-color: var(--line);
+  box-shadow: var(--shadow);
+}
+
+.theme-workspace .brand-panel {
+  justify-content: flex-start;
+  gap: clamp(1.1rem, 2.7vh, 1.7rem);
+  padding: clamp(1.5rem, 4vw, 3.2rem);
+  background:
+    radial-gradient(circle at 82% 14%, rgba(244, 123, 69, 0.2), transparent 14rem),
+    radial-gradient(circle at 92% 11%, rgba(112, 74, 200, 0.24), transparent 11rem),
+    linear-gradient(145deg, #21172b 0%, #191220 100%);
+}
+
+.theme-workspace .brand-panel::before {
+  display: block !important;
+  inset: auto -11rem -12rem auto;
+  width: 31rem;
+  height: 31rem;
+  border-color: rgba(232, 191, 114, 0.13);
+  transform: rotate(-18deg);
+}
+
+.theme-workspace .brand-header {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
+
+.theme-workspace .brand-logo {
+  width: 3.6rem;
+}
+
+.theme-workspace .brand-copy h1 {
+  margin: 0;
+  font-size: clamp(1.65rem, 3vw, 2.15rem);
+}
+
+.theme-workspace .brand-campus {
+  margin: 0.2rem 0 0;
+  color: var(--gold);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.theme-workspace .brand-intro h2 {
+  max-width: 13ch;
+  margin: 0;
+  color: var(--text);
+  font-size: clamp(2.25rem, 4.7vw, 3.55rem);
+  font-weight: 700;
+  letter-spacing: -0.065em;
+  line-height: 0.99;
+}
+
+.theme-workspace .brand-lead {
+  max-width: 49ch;
+  margin-top: 1.15rem;
+  font-size: clamp(0.98rem, 1.5vw, 1.08rem);
+}
+
+.theme-workspace .access-guide {
+  max-width: 47rem;
+}
+
+.theme-workspace .access-guide h3 {
+  margin: 0 0 0.85rem;
+  color: var(--gold);
+  font-size: 0.76rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.theme-workspace .access-guide ol {
+  display: grid;
+  gap: 0.1rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: access;
+}
+
+.theme-workspace .access-guide li {
+  display: grid;
+  grid-template-columns: 2.35rem minmax(0, 1fr);
+  gap: 0 0.8rem;
+  padding: 0.72rem 0;
+  border-bottom: 1px solid rgba(232, 191, 114, 0.1);
+  counter-increment: access;
+}
+
+.theme-workspace .access-guide li::before {
+  grid-row: span 2;
+  display: grid;
+  width: 2.05rem;
+  height: 2.05rem;
+  place-items: center;
+  border-radius: 999px;
+  background: rgba(244, 123, 69, 0.13);
+  color: var(--orange-soft);
+  content: counter(access, decimal-leading-zero);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.theme-workspace .access-guide strong {
+  font-size: 0.94rem;
+}
+
+.theme-workspace .access-guide span {
+  margin-top: 0.15rem;
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.theme-workspace .center-email-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.7rem;
+  align-items: start;
+  margin-top: 0;
+  padding: 0.95rem 1rem;
+  border-color: rgba(102, 197, 164, 0.27);
+  border-radius: var(--radius-md);
+  background: rgba(102, 197, 164, 0.055);
+}
+
+.theme-workspace .status-dot {
+  width: 0.62rem;
+  height: 0.62rem;
+  margin-top: 0.4rem;
+  border-radius: 999px;
+  background: #766879;
+}
+
+.theme-workspace .status-dot.is-ready {
+  background: var(--green);
+  box-shadow: 0 0 12px rgba(102, 197, 164, 0.46);
+}
+
+.theme-workspace .center-email-card strong {
+  font-size: 1rem;
+}
+
+.theme-workspace .center-email-card .eyebrow {
+  color: var(--green);
+}
+
+.theme-workspace .login-card {
+  justify-content: flex-start;
+  padding: clamp(1.45rem, 3.6vw, 2.65rem);
+  background: #1d1626;
+}
+
+.theme-workspace .login-card .center-email-card {
+  margin-top: 1.35rem;
+}
+
+.theme-workspace .auth-header {
+  margin-bottom: clamp(1.2rem, 3.5vh, 2.2rem);
+  padding-bottom: clamp(1.1rem, 3vh, 1.7rem);
+  border-bottom: 1px solid var(--line);
+}
+
+.theme-workspace .auth-header p {
+  max-width: 38ch;
+  margin: 0.7rem 0 0;
+  line-height: 1.55;
+}
+
+.theme-workspace .step-label {
+  display: inline-flex;
+  margin-bottom: 0.7rem;
+  color: var(--orange-soft);
+  font-size: 0.75rem;
+  font-weight: 750;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.theme-workspace .login-card h2 {
+  margin: 0 0 0.65rem;
+  font-size: clamp(1.65rem, 3vw, 2.1rem);
+  line-height: 1.08;
+}
+
+.theme-workspace .login-card label {
+  font-size: 0.88rem;
+  letter-spacing: 0.01em;
+}
+
+.theme-workspace input,
+.theme-workspace select,
+.theme-workspace textarea {
+  border-radius: 12px;
+  padding: 0.92rem 0.95rem;
+  border-color: rgba(232, 191, 114, 0.16);
+  background: #15101b;
+}
+
+.theme-workspace .primary-action {
+  min-height: 3.1rem;
+  border-radius: 12px;
+  background: linear-gradient(105deg, var(--orange), #f6a04d);
+  font-weight: 800;
+}
+
+.theme-workspace .login-card .primary-action {
+  width: 100%;
+}
+
+.theme-workspace .public-calendar-action {
+  width: 100%;
+  margin-top: 0.75rem;
+  border-radius: 12px;
+  color: var(--gold);
+}
+
+.theme-workspace .auth-footnote {
+  margin: 0;
+  padding-top: 1.15rem;
+  color: #9d8ea8;
+  font-size: 0.82rem;
+  line-height: 1.55;
+}
+
+.theme-workspace .app-view {
+  min-height: calc(100vh - 3.4rem);
+  grid-template-columns: 17rem minmax(0, 1fr);
+  gap: 1.1rem;
+}
+
+.theme-workspace .shell[data-access="public"] .sidebar {
+  display: none;
+}
+
+.theme-workspace .shell[data-access="public"] .app-view {
+  grid-template-columns: 1fr;
+}
+
+.theme-workspace .shell[data-access="public"] #mission-strip {
+  display: none;
+}
+
+.theme-workspace .sidebar {
+  position: sticky;
+  top: 1rem;
+  height: calc(100vh - 3.4rem);
+  gap: 1.1rem;
+  padding: 1.1rem;
+  border-radius: var(--radius-lg);
+  background: #1b1423;
+}
+
+.theme-workspace .session-card {
+  display: grid;
+  gap: 0.3rem;
+  padding: 0.85rem;
+  border: 1px solid rgba(232, 191, 114, 0.15);
+  border-radius: 12px;
+  background: rgba(232, 191, 114, 0.045);
+}
+
+.theme-workspace .session-card span {
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.theme-workspace .session-card small {
+  color: var(--gold);
+}
+
+.theme-workspace nav {
+  gap: 0.35rem;
+}
+
+.theme-workspace .nav-item {
+  display: grid;
+  gap: 0.18rem;
+  padding: 0.72rem 0.78rem;
+  border-radius: 11px;
+}
+
+.theme-workspace .nav-item strong {
+  font-size: 0.92rem;
+}
+
+.theme-workspace .nav-item span {
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.theme-workspace .nav-item.active {
+  border-left: 2px solid var(--orange);
+  background: rgba(244, 123, 69, 0.12);
+}
+
+.theme-workspace .workspace {
+  gap: 0.85rem;
+}
+
+.theme-workspace .topbar {
+  padding: 0.9rem 1.1rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--panel);
+}
+
+.theme-workspace .topbar h2 {
+  font-size: clamp(1.2rem, 2.3vw, 1.6rem);
+}
+
+.theme-workspace .top-actions .ghost-action,
+.theme-workspace .top-actions .primary-action {
+  min-height: 2.6rem;
+  border-radius: 11px;
+}
+
+.theme-workspace .status-bar {
+  padding: 0.76rem 1rem;
+  border-radius: var(--radius-md);
+}
+
+.theme-workspace .status-item > span {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.theme-workspace .calendar-panel,
+.theme-workspace .agenda-panel {
+  padding: 1rem;
+  border-radius: var(--radius-lg);
+  background: var(--panel);
+}
+
+.theme-workspace .content-grid {
+  grid-template-columns: minmax(36rem, 1fr) 21.5rem;
+  gap: 0.85rem;
+}
+
+.theme-workspace .calendar-day {
+  min-height: 6.6rem;
+  border-radius: 11px;
+  background: #261d30;
+}
+
+.theme-workspace .calendar-day:hover,
+.theme-workspace .calendar-day.today,
+.theme-workspace .calendar-day.is-holiday,
+.theme-workspace .calendar-day.is-selected {
+  transform: none;
+}
+
+.theme-workspace .event-pill {
+  border-radius: 7px;
+  background: rgba(244, 123, 69, 0.22);
+}
+
+.theme-workspace .agenda-item {
+  border-radius: 11px;
+  background: #261d30;
+}
+
+.theme-workspace .google-panel-compact {
+  padding: 0.95rem;
+  border-radius: 12px;
+}
+
+.theme-workspace .google-panel-compact strong {
+  display: block;
+  margin-bottom: 0.35rem;
+  color: var(--text);
+  font-size: 0.92rem;
+}
+
+.theme-workspace .google-link {
+  width: 100%;
+  justify-content: center;
+  border-radius: 10px;
+  padding: 0.65rem;
+  background: rgba(232, 191, 114, 0.1);
+}
+
+@media (max-width: 1080px) {
+  .theme-workspace .login-view {
+    grid-template-columns: 1fr;
+  }
+
+  .theme-workspace .brand-panel {
+    gap: 1.35rem;
+  }
+
+  .theme-workspace .brand-intro h2 {
+    max-width: 18ch;
+  }
+
+  .theme-workspace .app-view {
+    grid-template-columns: 1fr;
+  }
+
+  .theme-workspace .sidebar {
+    position: static;
+    height: auto;
+    order: 0;
+  }
+
+  .theme-workspace .sidebar nav {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+
+  .theme-workspace .content-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .theme-workspace .shell {
+    padding: 0.6rem;
+  }
+
+  .theme-workspace .login-view {
+    gap: 0.72rem;
+  }
+
+  .theme-workspace .brand-panel {
+    padding: 1.2rem;
+    border-radius: 20px;
+  }
+
+  .theme-workspace .brand-header {
+    align-items: center;
+    text-align: left;
+  }
+
+  .theme-workspace .brand-logo {
+    width: 2.85rem;
+  }
+
+  .theme-workspace .brand-copy h1 {
+    font-size: 1.5rem;
+  }
+
+  .theme-workspace .brand-campus {
+    font-size: 0.63rem;
+  }
+
+  .theme-workspace .brand-intro h2 {
+    max-width: none;
+    font-size: clamp(1.65rem, 9vw, 2.1rem);
+  }
+
+  .theme-workspace .brand-lead {
+    margin-top: 0.7rem;
+    font-size: 0.86rem;
+  }
+
+  .theme-workspace .access-guide {
+    display: none;
+  }
+
+  .theme-workspace .center-email-card {
+    padding: 0.82rem;
+  }
+
+  .theme-workspace .login-card {
+    padding: 1.2rem;
+    border-radius: 20px;
+  }
+
+  .theme-workspace .auth-header {
+    margin-bottom: 1rem;
+    padding-bottom: 0.9rem;
+  }
+
+  .theme-workspace .app-view {
+    padding-bottom: 4.9rem;
+  }
+
+  .theme-workspace .shell[data-access="public"] .app-view {
+    padding-bottom: 0;
+  }
+
+  .theme-workspace .sidebar {
+    position: fixed;
+    z-index: 30;
+    right: 0.55rem;
+    bottom: 0.55rem;
+    left: 0.55rem;
+    display: block;
+    padding: 0.36rem;
+    border-radius: 16px;
+    background: rgba(27, 20, 35, 0.96);
+  }
+
+  .theme-workspace .sidebar .mini-brand,
+  .theme-workspace .session-card,
+  .theme-workspace .install-card,
+  .theme-workspace .sound-card {
+    display: none;
+  }
+
+  .theme-workspace .sidebar nav {
+    display: flex;
+    gap: 0.2rem;
+    overflow-x: auto;
+  }
+
+  .theme-workspace .nav-item {
+    flex: 1 0 4.15rem;
+    justify-items: center;
+    padding: 0.62rem 0.26rem;
+    text-align: center;
+  }
+
+  .theme-workspace .nav-item span {
+    display: none;
+  }
+
+  .theme-workspace .nav-item strong {
+    font-size: 0.7rem;
+  }
+
+  .theme-workspace .nav-item.active {
+    border-bottom: 2px solid var(--orange);
+    border-left: 0;
+  }
+
+  .theme-workspace .topbar {
+    grid-template-columns: 1fr;
+    gap: 0.9rem;
+    padding: 0.85rem;
+  }
+
+  .theme-workspace .top-actions {
+    display: grid;
+    grid-template-columns: auto auto auto 1fr;
+    justify-content: stretch;
+  }
+
+  .theme-workspace #notification-button {
+    grid-column: 1 / span 3;
+  }
+
+  .theme-workspace #new-event-button {
+    grid-column: 4;
+    grid-row: 1 / span 2;
+  }
+
+  .theme-workspace .status-bar {
+    gap: 0.6rem;
+    padding: 0.72rem;
+  }
+
+  .theme-workspace .status-item:last-child {
+    flex: 1 1 100%;
+    padding-top: 0.5rem;
+    border-top: 1px solid var(--line);
+  }
+
+  .theme-workspace .calendar-panel,
+  .theme-workspace .agenda-panel {
+    padding: 0.72rem;
+  }
+}
