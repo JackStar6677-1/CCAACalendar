@@ -105,6 +105,40 @@ class EventRead(BaseModel):
     created_by_user_id: str | None
 
 
+class AcademicImportCandidateRead(BaseModel):
+    title: str
+    starts_at: datetime
+    ends_at: datetime
+    category: str
+    description: str
+    source_line: str
+    confidence: float
+
+
+class AcademicImportPreviewRead(BaseModel):
+    import_id: str
+    organization_id: str
+    year: int
+    source_filename: str
+    import_status: str
+    line_count: int
+    candidates: list[AcademicImportCandidateRead]
+    warnings: list[str]
+
+
+class AcademicImportCommitRequest(BaseModel):
+    created_by_user_id: str | None = None
+    selected_indexes: list[int] | None = None
+    notify_subscribers: bool = False
+
+
+class AcademicImportCommitRead(BaseModel):
+    import_id: str
+    imported_events: int
+    skipped_candidates: int
+    event_ids: list[str]
+
+
 class ReminderEmailRequest(BaseModel):
     recipient_email: str = Field(min_length=5, max_length=254)
     minutes_before: int = Field(default=60, ge=5, le=10080)

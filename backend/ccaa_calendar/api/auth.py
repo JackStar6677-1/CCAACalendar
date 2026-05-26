@@ -11,9 +11,9 @@ from ccaa_calendar.domain.admin_roster import AdminRosterEntry, load_admin_roste
 from ccaa_calendar.domain.rut import is_valid_rut, mask_rut, normalize_rut, rut_hash
 from ccaa_calendar.integrations.google_calendar import token_metadata
 from ccaa_calendar.integrations.google_oauth import is_google_oauth_configured
-from ccaa_calendar.models import AuditLog, Center, Organization, User
 from ccaa_calendar.integrations.mail_delivery import MailDeliveryError, MailNotConfiguredError
 from ccaa_calendar.integrations.transactional_mail import password_reset_email
+from ccaa_calendar.models import AuditLog, Center, Organization, User
 from ccaa_calendar.schemas import (
     AuthActivateRequest,
     AuthLoginRequest,
@@ -35,9 +35,9 @@ from ccaa_calendar.security import (
     utcnow,
     verify_password,
 )
+from ccaa_calendar.settings import Settings, get_settings
 
 logger = logging.getLogger(__name__)
-from ccaa_calendar.settings import Settings, get_settings
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 SessionDep = Annotated[Session, Depends(get_session)]
@@ -464,7 +464,10 @@ def confirm_password_reset(
     if expires_at.tzinfo is None:
         expires_at = expires_at.replace(tzinfo=UTC)
     if expires_at < utcnow():
-        raise HTTPException(status_code=400, detail="El enlace o codigo expiro. Solicita uno nuevo.")
+        raise HTTPException(
+            status_code=400,
+            detail="El enlace o codigo expiro. Solicita uno nuevo.",
+        )
 
     if user.password_reset_token_hash != hash_token(payload.token):
         raise HTTPException(status_code=400, detail="Codigo o enlace invalido.")

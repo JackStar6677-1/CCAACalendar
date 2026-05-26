@@ -33,7 +33,11 @@ def notification_subscribers(session: Session, organization_id: str) -> list[Use
     )
 
 
-def enqueue_event_notifications(settings: Settings, session: Session, event: Event) -> dict[str, int]:
+def enqueue_event_notifications(
+    settings: Settings,
+    session: Session,
+    event: Event,
+) -> dict[str, int]:
     users = notification_subscribers(session, event.organization_id)
     now = _aware(utcnow())
     queued_created = 0

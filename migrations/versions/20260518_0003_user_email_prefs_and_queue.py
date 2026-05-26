@@ -19,7 +19,12 @@ depends_on: str | Sequence[str] | None = None
 def upgrade() -> None:
     op.add_column(
         "users",
-        sa.Column("email_notifications_enabled", sa.Boolean(), nullable=False, server_default=sa.true()),
+        sa.Column(
+            "email_notifications_enabled",
+            sa.Boolean(),
+            nullable=False,
+            server_default=sa.true(),
+        ),
     )
     op.create_table(
         "event_email_queue",

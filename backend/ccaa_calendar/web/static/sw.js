@@ -1,10 +1,10 @@
-const CACHE_NAME = "ccaa-calendar-pwa-v15";
+const CACHE_NAME = "ccaa-calendar-pwa-v18";
 const STATIC_ASSETS = [
   "/",
   "/offline",
   "/manifest.webmanifest",
-  "/assets/styles.css?v=14",
-  "/assets/app.js?v=16",
+  "/assets/styles.css?v=18",
+  "/assets/app.js?v=18",
   "/assets/orbit-icon.svg",
   "/assets/ccaa-calendar.config.json",
 ];

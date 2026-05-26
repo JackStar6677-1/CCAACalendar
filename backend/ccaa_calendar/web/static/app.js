@@ -53,6 +53,11 @@ const profileSummary = document.querySelector("#profile-summary");
 const profileEmailNotifications = document.querySelector("#profile-email-notifications");
 const profileEmailStatus = document.querySelector("#profile-email-status");
 const profileSaveButton = document.querySelector("#profile-save-button");
+const academicImportForm = document.querySelector("#academic-import-form");
+const academicImportStatus = document.querySelector("#academic-import-status");
+const academicImportSummary = document.querySelector("#academic-import-summary");
+const academicImportCandidates = document.querySelector("#academic-import-candidates");
+const academicImportCommit = document.querySelector("#academic-import-commit");
 
 let soundEnabled = false;
 let audioContext;
@@ -70,6 +75,7 @@ let missionStripKey = "";
 let currentView = "calendar";
 let spaces = [];
 let reservations = [];
+let currentAcademicImport;
 
 const PLACEHOLDER_TITLES = new Set([
   "reunion centro de estudiantes",
@@ -184,6 +190,11 @@ function setSpaceStatus(message, tone = "neutral") {
 function setReservationStatus(message, tone = "neutral") {
   reservationSaveStatus.textContent = message;
   reservationSaveStatus.dataset.tone = tone;
+}
+
+function setImportStatus(message, tone = "neutral") {
+  academicImportStatus.textContent = message;
+  academicImportStatus.dataset.tone = tone;
 }
 
 function normalizeCategory(category) {
@@ -1010,6 +1021,112 @@ async function hydrateSpaces() {
   }
 }
 
+function renderAcademicImportPreview(preview) {
+  currentAcademicImport = preview;
+  academicImportCandidates.replaceChildren();
+  const warnings = preview.warnings?.length ? ` · ${preview.warnings.join(" ")}` : "";
+  academicImportSummary.textContent =
+    `${preview.candidates.length} hitos detectados en ${preview.line_count} lineas${warnings}`;
+
+  if (!preview.candidates.length) {
+    academicImportCommit.disabled = true;
+    const empty = document.createElement("div");
+    empty.className = "loading-row warning";
+    empty.textContent = "No hay hitos para aprobar. Prueba con CSV/Excel o revisa las fechas.";
+    academicImportCandidates.append(empty);
+    return;
+  }
+
+  preview.candidates.forEach((candidate, index) => {
+    const item = document.createElement("label");
+    item.className = "import-candidate";
+
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.value = String(index);
+    checkbox.checked = true;
+
+    const body = document.createElement("span");
+    const title = document.createElement("strong");
+    title.textContent = candidate.title;
+    const meta = document.createElement("small");
+    meta.textContent =
+      `${formatDateTime(candidate.starts_at)} · ${candidate.category} · ` +
+      `${Math.round(candidate.confidence * 100)}% confianza`;
+    const source = document.createElement("em");
+    source.textContent = candidate.source_line;
+    body.append(title, meta, source);
+
+    item.append(checkbox, body);
+    academicImportCandidates.append(item);
+  });
+
+  academicImportCommit.disabled = false;
+}
+
+async function previewAcademicImport(formData) {
+  if (!authSession?.token) {
+    setImportStatus("Entra con RUT y clave antes de importar calendario.", "warning");
+    return;
+  }
+
+  setImportStatus("Leyendo archivo y detectando fechas...", "neutral");
+  const response = await trackedFetch("/api/imports/academic/preview", {
+    method: "POST",
+    headers: authHeaders(),
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const payload = await response.json().catch(() => ({}));
+    setImportStatus(payload.detail || "No pudimos leer ese archivo.", "warning");
+    return;
+  }
+
+  const preview = await response.json();
+  renderAcademicImportPreview(preview);
+  setImportStatus("Previsualizacion lista. Revisa antes de aprobar.", "success");
+}
+
+async function commitAcademicImport() {
+  if (!currentAcademicImport?.import_id) return;
+  const selectedIndexes = [...academicImportCandidates.querySelectorAll("input:checked")].map(
+    (input) => Number(input.value),
+  );
+  if (!selectedIndexes.length) {
+    setImportStatus("Selecciona al menos un hito antes de aprobar.", "warning");
+    return;
+  }
+
+  setImportStatus("Creando eventos academicos...", "neutral");
+  const response = await trackedFetch(
+    `/api/imports/academic/${currentAcademicImport.import_id}/commit`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...authHeaders() },
+      body: JSON.stringify({
+        created_by_user_id: authSession?.user_id || null,
+        selected_indexes: selectedIndexes,
+        notify_subscribers: false,
+      }),
+    },
+  );
+
+  if (!response.ok) {
+    const payload = await response.json().catch(() => ({}));
+    setImportStatus(payload.detail || "No pudimos aprobar la importacion.", "warning");
+    return;
+  }
+
+  const result = await response.json();
+  setImportStatus(
+    `${result.imported_events} eventos creados. ${result.skipped_candidates} duplicados omitidos.`,
+    "success",
+  );
+  academicImportCommit.disabled = true;
+  await hydrateFromApi();
+}
+
 function prepareReservationForm() {
   const base = new Date(`${selectedDate}T14:00:00`);
   const end = new Date(base);
@@ -1500,6 +1617,16 @@ reservationForm?.addEventListener("submit", async (event) => {
   prepareReservationForm();
   setReservationStatus("Reserva creada y visible en calendario.", "success");
   await hydrateSpaces();
+});
+
+academicImportForm?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const formData = new FormData(academicImportForm);
+  await previewAcademicImport(formData);
+});
+
+academicImportCommit?.addEventListener("click", () => {
+  commitAcademicImport();
 });
 
 soundToggle.addEventListener("click", async () => {

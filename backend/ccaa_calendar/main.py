@@ -14,6 +14,7 @@ from ccaa_calendar.api import (
     events,
     health,
     holidays,
+    imports,
     integrations,
     organizations,
     spaces,
@@ -60,6 +61,7 @@ def create_app() -> FastAPI:
     app.include_router(centers.router)
     app.include_router(events.router)
     app.include_router(holidays.router)
+    app.include_router(imports.router)
     app.include_router(integrations.router)
     return app
 

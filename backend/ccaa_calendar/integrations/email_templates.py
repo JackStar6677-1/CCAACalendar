@@ -96,9 +96,13 @@ def _signature_block(settings: Settings) -> str:
 
 def _footer_block(settings: Settings, *, note: str | None = None) -> str:
     app_url = settings.app_public_url.rstrip("/")
+    calendar_link = (
+        f'<a href="{escape(app_url)}/app" '
+        f'style="color:{BRAND["orange"]};text-decoration:none;">Abrir calendario</a>'
+    )
     lines = [
         note or "Este mensaje se envió desde la cuenta oficial del centro de estudiantes.",
-        f'<a href="{escape(app_url)}/app" style="color:{BRAND["orange"]};text-decoration:none;">Abrir calendario</a>',
+        calendar_link,
         "Puedes desactivar avisos por correo en <strong>Mi perfil</strong> dentro de la app.",
     ]
     body = "<br/>".join(lines)
@@ -115,13 +119,15 @@ def _footer_block(settings: Settings, *, note: str | None = None) -> str:
 
 
 def _cta_button(href: str, label: str) -> str:
+    gradient = f"linear-gradient(135deg,{BRAND['orange']},{BRAND['violet']})"
+    button_font = "Segoe UI,Helvetica,Arial,sans-serif"
     return f"""
     <table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center"
            style="margin:20px auto 8px;">
       <tr>
-        <td align="center" style="border-radius:999px;background:linear-gradient(135deg,{BRAND['orange']},{BRAND['violet']});">
+        <td align="center" style="border-radius:999px;background:{gradient};">
           <a href="{escape(href)}" target="_blank"
-             style="display:inline-block;padding:14px 28px;font-family:Segoe UI,Helvetica,Arial,sans-serif;
+             style="display:inline-block;padding:14px 28px;font-family:{button_font};
              font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:999px;">
             {escape(label)}
           </a>
@@ -131,7 +137,12 @@ def _cta_button(href: str, label: str) -> str:
     """
 
 
-def _highlight_card(title: str, rows: list[tuple[str, str]], *, accent: str = BRAND["orange"]) -> str:
+def _highlight_card(
+    title: str,
+    rows: list[tuple[str, str]],
+    *,
+    accent: str = BRAND["orange"],
+) -> str:
     rows_html = "".join(
         f"""
         <tr>
@@ -224,9 +235,11 @@ def render_email_html(
           </tr>
           <tr>
             <td style="padding:8px 28px 4px;">
-              <h1 style="margin:0 0 8px;font-family:Segoe UI,Helvetica,Arial,sans-serif;font-size:22px;
+              <h1 style="margin:0 0 8px;font-family:Segoe UI,Helvetica,Arial,sans-serif;
+                 font-size:22px;
                  line-height:1.3;color:{BRAND['text']};">{escape(headline)}</h1>
-              <p style="margin:0 0 18px;font-family:Segoe UI,Helvetica,Arial,sans-serif;font-size:15px;
+              <p style="margin:0 0 18px;font-family:Segoe UI,Helvetica,Arial,sans-serif;
+                 font-size:15px;
                  color:{BRAND['gold']};">{escape(greeting)}</p>
               {paragraphs_html}
               {highlight_html}

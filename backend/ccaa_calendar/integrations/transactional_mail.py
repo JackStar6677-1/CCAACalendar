@@ -54,7 +54,8 @@ def event_created_email(settings: Settings, event: Event, user: User) -> str:
         greeting=f"Hola {name},",
         paragraphs=[
             "Se registró un movimiento en el calendario oficial del centro. "
-            "Este aviso llega a tu correo personal porque tienes activadas las notificaciones en CCAACalendar.",
+            "Este aviso llega a tu correo personal porque tienes activadas las "
+            "notificaciones en CCAACalendar.",
         ],
         highlight=(
             event.title,
@@ -84,7 +85,9 @@ def event_reminder_email(
     app_url = settings.app_public_url.rstrip("/")
     hours = minutes_before // 60
     time_label = (
-        f"{hours} h" if minutes_before >= 60 and minutes_before % 60 == 0 else f"{minutes_before} min"
+        f"{hours} h"
+        if minutes_before >= 60 and minutes_before % 60 == 0
+        else f"{minutes_before} min"
     )
     subject = f"Recordatorio CCAACalendar: {event.title}"
     body_text = "\n".join(
@@ -144,7 +147,8 @@ def password_reset_email(
             "Abre este enlace (vence en 30 minutos):",
             reset_link,
             "",
-            f"Si el enlace no abre, copia este código en la pantalla de recuperación: {reset_token}",
+            "Si el enlace no abre, copia este código en la pantalla de recuperación: "
+            f"{reset_token}",
             "",
             "Si no pediste este cambio, ignora el correo o avisa a la directiva.",
         ]
@@ -161,7 +165,10 @@ def password_reset_email(
         ],
         cta=(reset_link, "Restablecer clave"),
         code_block=reset_token,
-        footer_note="Correo de seguridad de tu cuenta interna (RUT + clave). No compartas el código.",
+        footer_note=(
+            "Correo de seguridad de tu cuenta interna (RUT + clave). "
+            "No compartas el código."
+        ),
     )
     return send_email(
         settings,
@@ -188,8 +195,10 @@ def branded_test_email(settings: Settings, *, to: str, recipient_name: str = "eq
         greeting=f"Hola {recipient_name},",
         paragraphs=[
             "Este mensaje confirma que los correos transaccionales usan la identidad visual "
-            "de CCAACalendar: fondo oscuro, acentos naranjo y violeta, logo orbital en SVG y firma del centro.",
-            "Los avisos de eventos, recordatorios y recuperación de clave comparten esta misma plantilla.",
+            "de CCAACalendar: fondo oscuro, acentos naranjo y violeta, logo orbital "
+            "en SVG y firma del centro.",
+            "Los avisos de eventos, recordatorios y recuperación de clave comparten "
+            "esta misma plantilla.",
         ],
         highlight=(
             "Detalle de prueba",

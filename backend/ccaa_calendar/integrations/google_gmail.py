@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import base64
 from datetime import UTC
-from email.message import EmailMessage
 
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build

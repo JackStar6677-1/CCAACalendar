@@ -26,5 +26,5 @@ async def run_email_worker(stop_event: asyncio.Event) -> None:
 
         try:
             await asyncio.wait_for(stop_event.wait(), timeout=interval)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             continue

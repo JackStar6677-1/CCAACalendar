@@ -3,6 +3,8 @@ import os
 import uuid
 from datetime import UTC, datetime
 
+from ccaa_calendar.database import SessionLocal, get_session
+from ccaa_calendar.domain.academic_import import parse_academic_calendar
 from ccaa_calendar.domain.admin_roster import load_admin_roster
 from ccaa_calendar.domain.rut import is_valid_rut, mask_rut, normalize_rut
 from ccaa_calendar.integrations.google_calendar import (
@@ -11,9 +13,11 @@ from ccaa_calendar.integrations.google_calendar import (
 )
 from ccaa_calendar.integrations.google_oauth import is_google_oauth_configured, make_flow
 from ccaa_calendar.main import app
-from ccaa_calendar.models import Event
+from ccaa_calendar.models import Event, EventEmailQueue, User
+from ccaa_calendar.security import hash_token, new_public_token
 from ccaa_calendar.settings import Settings, get_settings
 from fastapi.testclient import TestClient
+from sqlalchemy import select
 
 
 def test_healthcheck() -> None:
@@ -32,7 +36,7 @@ def test_web_home_loads() -> None:
 
     assert response.status_code == 200
     assert "CCAACalendar" in response.text
-    assert "configurada fuera del repo publico" in response.text
+    assert "correo del centro solo" in response.text
     assert styles_response.status_code == 200
     assert manifest_response.status_code == 200
 
@@ -582,16 +586,9 @@ def test_password_reset_confirm_updates_password(tmp_path) -> None:
             )
             assert request_response.status_code == 200
 
-            from ccaa_calendar.models import User
-            from ccaa_calendar.database import get_session
-
             session = next(get_session())
-            user = session.scalar(
-                __import__("sqlalchemy").select(User).where(User.email == test_email)
-            )
+            user = session.scalar(select(User).where(User.email == test_email))
             assert user and user.password_reset_token_hash
-
-            from ccaa_calendar.security import new_public_token, hash_token
 
             token = new_public_token()
             user.password_reset_token_hash = hash_token(token)
@@ -612,6 +609,75 @@ def test_password_reset_confirm_updates_password(tmp_path) -> None:
                 json={"rut": "21452686-7", "password": "clave-nueva-12345"},
             )
             assert login.status_code == 200
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_academic_import_parser_detects_dates_from_csv() -> None:
+    parsed = parse_academic_calendar(
+        "calendario.csv",
+        b"fecha,titulo\n2026-03-10,Inicio de semestre\n01/05/2026,Feriado irrenunciable\n",
+    )
+
+    assert parsed["line_count"] == 3
+    assert len(parsed["candidates"]) == 2
+    assert parsed["candidates"][0]["title"] == "Inicio de semestre"
+    assert parsed["candidates"][1]["category"] == "feriado"
+
+
+def test_academic_import_preview_and_commit(tmp_path) -> None:
+    import_title = f"Inicio de semestre {uuid.uuid4().hex}"
+    roster = tmp_path / "admins.json"
+    roster.write_text(
+        json.dumps(
+            {
+                "admins": [
+                    {
+                        "rut": "21.452.686-7",
+                        "email": f"import-{uuid.uuid4()}@example.com",
+                        "display_name": "Importadora Demo",
+                        "role": "admin",
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    app.dependency_overrides[get_settings] = lambda: Settings(
+        admin_roster_path=str(roster),
+        admin_identity_pepper=f"import-pepper-{tmp_path.name}-{uuid.uuid4()}",
+    )
+
+    try:
+        with TestClient(app) as client:
+            session_response = client.post(
+                "/api/auth/activate",
+                json={"rut": "21.452.686-7", "password": "orbit-demo-seguro"},
+            )
+            token = session_response.json()["token"]
+            headers = {"Authorization": f"Bearer {token}"}
+            preview = client.post(
+                "/api/imports/academic/preview",
+                headers=headers,
+                data={"year": "2026"},
+                files={
+                    "file": (
+                        "calendario.csv",
+                        f"fecha,titulo\n2026-03-10,{import_title}\n".encode(),
+                        "text/csv",
+                    )
+                },
+            )
+            commit = client.post(
+                f"/api/imports/academic/{preview.json()['import_id']}/commit",
+                headers=headers,
+                json={"selected_indexes": [0], "notify_subscribers": False},
+            )
+
+        assert preview.status_code == 201
+        assert preview.json()["candidates"][0]["title"] == import_title
+        assert commit.status_code == 200
+        assert commit.json()["imported_events"] == 1
     finally:
         app.dependency_overrides.clear()
 
@@ -656,9 +722,6 @@ def test_event_create_queues_email_notifications(tmp_path) -> None:
                 },
             ).json()
 
-            from ccaa_calendar.database import SessionLocal
-            from ccaa_calendar.models import EventEmailQueue, User
-
             with SessionLocal() as session:
                 user = User(
                     organization_id=organization["id"],
@@ -691,7 +754,7 @@ def test_event_create_queues_email_notifications(tmp_path) -> None:
             with SessionLocal() as session:
                 queued = list(
                     session.scalars(
-                        __import__("sqlalchemy").select(EventEmailQueue).where(
+                        select(EventEmailQueue).where(
                             EventEmailQueue.event_id == event.json()["id"]
                         )
                     )
