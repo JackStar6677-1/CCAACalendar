@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import and_, select
 from sqlalchemy.orm import Session
 
-from ccaa_calendar.api.auth import CurrentAdminUserDep
+from ccaa_calendar.api.auth import AdminUserDep, EditorUserDep
 from ccaa_calendar.database import get_session
 from ccaa_calendar.models import AuditLog, Event, Organization, Space
 from ccaa_calendar.schemas import EventRead, SpaceCreate, SpaceRead, SpaceReservationCreate
@@ -27,7 +27,7 @@ def list_spaces(
 @router.post("", response_model=SpaceRead, status_code=status.HTTP_201_CREATED)
 def create_space(
     payload: SpaceCreate,
-    current_user: CurrentAdminUserDep,
+    current_user: AdminUserDep,
     session: SessionDep,
 ) -> Space:
     if payload.organization_id != current_user.organization_id:
@@ -88,7 +88,7 @@ def list_space_reservations(
 @router.post("/reservations", response_model=EventRead, status_code=status.HTTP_201_CREATED)
 def create_space_reservation(
     payload: SpaceReservationCreate,
-    current_user: CurrentAdminUserDep,
+    current_user: EditorUserDep,
     session: SessionDep,
 ) -> Event:
     if payload.organization_id != current_user.organization_id:

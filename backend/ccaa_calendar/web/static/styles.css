@@ -1151,6 +1151,8 @@ nav {
   color: var(--gold);
   font-weight: 900;
   text-decoration: none;
+  cursor: pointer;
+  font: inherit;
 }
 
 .google-panel ul {
@@ -1624,9 +1626,13 @@ body.theme-workspace {
 }
 
 .theme-workspace .status-link {
+  border: 0;
+  background: transparent;
+  padding: 0;
   font-size: 0.82rem;
   color: var(--orange-soft);
   text-decoration: none;
+  cursor: pointer;
 }
 
 .theme-workspace .status-link:hover {

@@ -3,6 +3,7 @@ import os
 import uuid
 from datetime import UTC, datetime
 
+from ccaa_calendar.api.auth import ACTIVE_SESSIONS
 from ccaa_calendar.database import SessionLocal, get_session
 from ccaa_calendar.domain.academic_import import parse_academic_calendar
 from ccaa_calendar.domain.admin_roster import load_admin_roster
@@ -13,11 +14,42 @@ from ccaa_calendar.integrations.google_calendar import (
 )
 from ccaa_calendar.integrations.google_oauth import is_google_oauth_configured, make_flow
 from ccaa_calendar.main import app
-from ccaa_calendar.models import Event, EventEmailQueue, User
+from ccaa_calendar.models import Event, EventEmailQueue, Organization, User
 from ccaa_calendar.security import hash_token, new_public_token
 from ccaa_calendar.settings import Settings, get_settings
 from fastapi.testclient import TestClient
 from sqlalchemy import select
+
+
+def authorized_user(role: str = "admin") -> tuple[dict[str, str], Organization, User]:
+    """Build an isolated signed-in user for protected API tests."""
+    with SessionLocal() as session:
+        suffix = uuid.uuid4().hex
+        organization = Organization(
+            name=f"Centro Test {suffix}",
+            slug=f"centro-test-{suffix}",
+            brand_config={"public_name": "Centro Test"},
+        )
+        session.add(organization)
+        session.flush()
+        user = User(
+            organization_id=organization.id,
+            email=f"user-{suffix}@example.com",
+            display_name="Administradora Test",
+            role=role,
+            is_active=True,
+            email_notifications_enabled=True,
+        )
+        session.add(user)
+        session.commit()
+        session.refresh(organization)
+        session.refresh(user)
+        session.expunge(organization)
+        session.expunge(user)
+
+    token = f"test-session-{uuid.uuid4().hex}"
+    ACTIVE_SESSIONS[token] = user.id
+    return {"Authorization": f"Bearer {token}"}, organization, user
 
 
 def test_healthcheck() -> None:
@@ -41,25 +73,23 @@ def test_web_home_loads() -> None:
     assert manifest_response.status_code == 200
 
 
-def test_create_organization_and_event() -> None:
+def test_create_event_requires_signed_in_editor() -> None:
+    headers, organization, user = authorized_user("editor")
     with TestClient(app) as client:
-        organization_response = client.post(
-            "/api/organizations",
-            json={
-                "name": "Universidad Demo",
-                "slug": "universidad-demo",
-                "domain_hint": "demo.edu",
-            },
-        )
-
-        assert organization_response.status_code in {201, 409}
-        organizations = client.get("/api/organizations").json()
-        organization = next(item for item in organizations if item["slug"] == "universidad-demo")
-
-        event_response = client.post(
+        anonymous = client.post(
             "/api/events",
             json={
-                "organization_id": organization["id"],
+                "organization_id": organization.id,
+                "title": "Evento anonimo",
+                "starts_at": "2026-05-26T14:00:00-04:00",
+                "ends_at": "2026-05-26T16:00:00-04:00",
+            },
+        )
+        event_response = client.post(
+            "/api/events",
+            headers=headers,
+            json={
+                "organization_id": organization.id,
                 "title": "Reunion centro de estudiantes",
                 "category": "reunion",
                 "visibility": "organization",
@@ -68,8 +98,37 @@ def test_create_organization_and_event() -> None:
             },
         )
 
+    assert anonymous.status_code == 401
     assert event_response.status_code == 201
+    assert event_response.json()["created_by_user_id"] == user.id
     assert event_response.json()["title"] == "Reunion centro de estudiantes"
+
+
+def test_editor_can_update_and_cancel_local_event() -> None:
+    headers, organization, _ = authorized_user("editor")
+    with TestClient(app) as client:
+        created = client.post(
+            "/api/events",
+            headers=headers,
+            json={
+                "organization_id": organization.id,
+                "title": "Actividad inicial",
+                "starts_at": "2026-06-02T14:00:00-04:00",
+                "ends_at": "2026-06-02T15:00:00-04:00",
+            },
+        )
+        updated = client.patch(
+            f"/api/events/{created.json()['id']}",
+            headers=headers,
+            json={"title": "Actividad actualizada", "ends_at": "2026-06-02T16:00:00-04:00"},
+        )
+        cancelled = client.delete(f"/api/events/{created.json()['id']}", headers=headers)
+
+    assert created.status_code == 201
+    assert updated.status_code == 200
+    assert updated.json()["title"] == "Actividad actualizada"
+    assert cancelled.status_code == 200
+    assert cancelled.json()["status"] == "cancelled"
 
 
 def test_chile_holidays_include_irrenunciables() -> None:
@@ -179,10 +238,15 @@ def test_google_login_persists_pkce_code_verifier(tmp_path) -> None:
         google_center_account_email="calendar-owner@example.com",
     )
     app.dependency_overrides[get_settings] = lambda: settings
+    headers, _, _ = authorized_user("admin")
 
     try:
         with TestClient(app) as client:
-            response = client.get("/api/integrations/google/login", follow_redirects=False)
+            response = client.get(
+                "/api/integrations/google/login",
+                headers=headers,
+                follow_redirects=False,
+            )
 
         assert response.status_code == 307
         assert "code_challenge=" in response.headers["location"]
@@ -196,20 +260,13 @@ def test_google_login_persists_pkce_code_verifier(tmp_path) -> None:
 
 
 def test_google_event_sync_preview_uses_calendar_payload() -> None:
+    headers, organization, _ = authorized_user("editor")
     with TestClient(app) as client:
-        organization_response = client.post(
-            "/api/organizations",
-            json={
-                "name": f"Universidad Sync {uuid.uuid4()}",
-                "slug": f"universidad-sync-{uuid.uuid4()}",
-                "domain_hint": "sync.example",
-            },
-        )
-        organization = organization_response.json()
         event_response = client.post(
             "/api/events",
+            headers=headers,
             json={
-                "organization_id": organization["id"],
+                "organization_id": organization.id,
                 "title": "Asamblea sincronizable",
                 "category": "centro",
                 "visibility": "organization",
@@ -219,7 +276,8 @@ def test_google_event_sync_preview_uses_calendar_payload() -> None:
             },
         )
         sync_response = client.post(
-            f"/api/integrations/google/events/{event_response.json()['id']}/sync"
+            f"/api/integrations/google/events/{event_response.json()['id']}/sync",
+            headers=headers,
         )
 
     assert sync_response.status_code == 200
@@ -253,20 +311,14 @@ def test_google_reminder_email_requires_gmail_scope(tmp_path) -> None:
         google_gmail_scopes="https://www.googleapis.com/auth/gmail.send",
     )
     app.dependency_overrides[get_settings] = lambda: settings
+    headers, organization, _ = authorized_user("editor")
     try:
         with TestClient(app) as client:
-            organization = client.post(
-                "/api/organizations",
-                json={
-                    "name": f"Universidad Gmail {uuid.uuid4()}",
-                    "slug": f"universidad-gmail-{uuid.uuid4()}",
-                    "domain_hint": "gmail.example",
-                },
-            ).json()
             created_event = client.post(
                 "/api/events",
+                headers=headers,
                 json={
-                    "organization_id": organization["id"],
+                    "organization_id": organization.id,
                     "title": "Asamblea con correo",
                     "category": "centro",
                     "visibility": "organization",
@@ -277,6 +329,7 @@ def test_google_reminder_email_requires_gmail_scope(tmp_path) -> None:
             ).json()
             response = client.post(
                 f"/api/integrations/google/events/{created_event['id']}/reminder-email",
+                headers=headers,
                 json={"recipient_email": "directiva@example.com"},
             )
     finally:
@@ -403,17 +456,20 @@ def test_auth_lookup_reports_activation_and_login_states(tmp_path) -> None:
         app.dependency_overrides.clear()
 
 
-def test_auth_bootstrap_exposes_center_email(tmp_path) -> None:
+def test_auth_bootstrap_does_not_expose_center_email(tmp_path) -> None:
     app.dependency_overrides[get_settings] = lambda: Settings(
         google_center_account_email="centro.psicologia@example.com",
     )
     try:
         with TestClient(app) as client:
             response = client.get("/api/auth/bootstrap")
+            centers = client.get("/api/centers")
         assert response.status_code == 200
         payload = response.json()
-        assert payload["official_email"] == "centro.psicologia@example.com"
+        assert payload["official_email"] is None
         assert payload["official_email_configured"] is True
+        assert centers.status_code == 200
+        assert all(center["official_email"] is None for center in centers.json())
     finally:
         app.dependency_overrides.clear()
 
@@ -792,20 +848,13 @@ def test_event_create_queues_email_notifications(tmp_path) -> None:
         mail_fallback_console=True,
     )
     app.dependency_overrides[get_settings] = lambda: settings
+    headers, organization, _ = authorized_user("admin")
 
     try:
         with TestClient(app) as client:
-            organization = client.post(
-                "/api/organizations",
-                json={
-                    "name": f"Org Mail {uuid.uuid4()}",
-                    "slug": f"org-mail-{uuid.uuid4()}",
-                },
-            ).json()
-
             with SessionLocal() as session:
                 user = User(
-                    organization_id=organization["id"],
+                    organization_id=organization.id,
                     email=f"integrante-{uuid.uuid4()}@example.com",
                     display_name="Integrante Prueba",
                     role="admin",
@@ -818,8 +867,9 @@ def test_event_create_queues_email_notifications(tmp_path) -> None:
 
             event = client.post(
                 "/api/events",
+                headers=headers,
                 json={
-                    "organization_id": organization["id"],
+                    "organization_id": organization.id,
                     "title": "Asamblea general",
                     "category": "centro",
                     "visibility": "organization",

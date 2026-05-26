@@ -104,11 +104,49 @@ def token_metadata(settings: Settings) -> dict[str, Any]:
 
 def insert_google_calendar_event(event: Event, settings: Settings) -> dict[str, Any]:
     service, calendar_id = _calendar_service(settings)
-    return (
-        service.events()
-        .insert(calendarId=calendar_id, body=google_event_payload(event), sendUpdates="all")
-        .execute()
-    )
+    try:
+        return (
+            service.events()
+            .insert(calendarId=calendar_id, body=google_event_payload(event), sendUpdates="all")
+            .execute()
+        )
+    except Exception as exc:
+        raise GoogleCalendarSyncError(str(exc)) from exc
+
+
+def update_google_calendar_event(event: Event, settings: Settings) -> dict[str, Any]:
+    """Actualiza el evento oficial enlazado en vez de crear duplicados."""
+    if not event.google_event_id:
+        raise GoogleCalendarSyncError("Event is not linked to Google Calendar.")
+    service, calendar_id = _calendar_service(settings)
+    try:
+        return (
+            service.events()
+            .update(
+                calendarId=calendar_id,
+                eventId=event.google_event_id,
+                body=google_event_payload(event),
+                sendUpdates="all",
+            )
+            .execute()
+        )
+    except Exception as exc:
+        raise GoogleCalendarSyncError(str(exc)) from exc
+
+
+def delete_google_calendar_event(event: Event, settings: Settings) -> None:
+    """Retira del calendario oficial un evento cancelado localmente."""
+    if not event.google_event_id:
+        return
+    service, calendar_id = _calendar_service(settings)
+    try:
+        service.events().delete(
+            calendarId=calendar_id,
+            eventId=event.google_event_id,
+            sendUpdates="all",
+        ).execute()
+    except Exception as exc:
+        raise GoogleCalendarSyncError(str(exc)) from exc
 
 
 def google_calendar_events(settings: Settings, max_results: int = 40) -> list[dict[str, Any]]:

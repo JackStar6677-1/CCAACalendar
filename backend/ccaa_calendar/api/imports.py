@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, s
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from ccaa_calendar.api.auth import CurrentAdminUserDep
+from ccaa_calendar.api.auth import AdminUserDep
 from ccaa_calendar.database import get_session
 from ccaa_calendar.domain.academic_import import parse_academic_calendar
 from ccaa_calendar.models import AcademicCalendar, AuditLog, Event
@@ -27,7 +27,7 @@ ImportFileDep = Annotated[UploadFile, File(...)]
     status_code=status.HTTP_201_CREATED,
 )
 async def preview_academic_calendar(
-    current_user: CurrentAdminUserDep,
+    current_user: AdminUserDep,
     session: SessionDep,
     year: ImportYearDep,
     file: ImportFileDep,
@@ -74,7 +74,7 @@ async def preview_academic_calendar(
 @router.get("/academic/{import_id}", response_model=AcademicImportPreviewRead)
 def read_academic_import(
     import_id: str,
-    current_user: CurrentAdminUserDep,
+    current_user: AdminUserDep,
     session: SessionDep,
 ) -> dict:
     academic_import = session.get(AcademicCalendar, import_id)
@@ -87,7 +87,7 @@ def read_academic_import(
 def commit_academic_import(
     import_id: str,
     payload: AcademicImportCommitRequest,
-    current_user: CurrentAdminUserDep,
+    current_user: AdminUserDep,
     session: SessionDep,
 ) -> AcademicImportCommitRead:
     """Convierte candidatos aprobados en eventos reales del calendario."""

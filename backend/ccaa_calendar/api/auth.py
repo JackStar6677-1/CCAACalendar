@@ -45,6 +45,8 @@ SettingsDep = Annotated[Settings, Depends(get_settings)]
 AuthorizationDep = Annotated[str | None, Header(alias="Authorization")]
 
 ACTIVE_SESSIONS: dict[str, str] = {}
+EDITOR_ROLES = {"editor", "admin", "owner"}
+ADMIN_ROLES = {"admin", "owner"}
 
 GENERIC_RESET_MESSAGE = (
     "Si los datos existen y estan activos, enviaremos instrucciones al correo asociado."
@@ -238,6 +240,26 @@ def current_admin_user(session: SessionDep, authorization: AuthorizationDep = No
 CurrentAdminUserDep = Annotated[User, Depends(current_admin_user)]
 
 
+def editor_user(current_user: CurrentAdminUserDep) -> User:
+    """Restringe escrituras del calendario a integrantes autorizadas."""
+    if current_user.role not in EDITOR_ROLES:
+        raise HTTPException(status_code=403, detail="Permiso de edicion requerido.")
+    return current_user
+
+
+EditorUserDep = Annotated[User, Depends(editor_user)]
+
+
+def administrator_user(current_user: CurrentAdminUserDep) -> User:
+    """Reserva la configuracion del centro y OAuth para la directiva."""
+    if current_user.role not in ADMIN_ROLES:
+        raise HTTPException(status_code=403, detail="Permiso de administracion requerido.")
+    return current_user
+
+
+AdminUserDep = Annotated[User, Depends(administrator_user)]
+
+
 @router.get("/me", response_model=UserProfileRead)
 def read_profile(current_user: CurrentAdminUserDep) -> UserProfileRead:
     return _profile_payload(current_user)
@@ -267,7 +289,8 @@ def login_bootstrap(session: SessionDep, settings: SettingsDep) -> LoginBootstra
     return LoginBootstrapRead(
         organization_name=organization.name,
         center_name=center.name,
-        official_email=official_email,
+        # La portada publica no debe publicar la direccion del correo oficial.
+        official_email=None,
         official_email_configured=bool(official_email),
         google_token_present=bool(token.get("token_present")),
         google_ready_to_connect=bool(

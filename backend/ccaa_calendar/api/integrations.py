@@ -4,14 +4,17 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session
 
+from ccaa_calendar.api.auth import AdminUserDep, CurrentAdminUserDep, EditorUserDep
 from ccaa_calendar.database import get_session
 from ccaa_calendar.integrations.google_calendar import (
     GoogleCalendarSyncError,
     GoogleCalendarTokenMissingError,
+    delete_google_calendar_event,
     google_calendar_events,
     google_event_payload,
     insert_google_calendar_event,
     token_metadata,
+    update_google_calendar_event,
 )
 from ccaa_calendar.integrations.google_gmail import (
     GmailSendError,
@@ -28,7 +31,7 @@ from ccaa_calendar.integrations.google_oauth import (
     read_json,
     write_json,
 )
-from ccaa_calendar.models import Event
+from ccaa_calendar.models import AuditLog, Event
 from ccaa_calendar.observability import write_app_log
 from ccaa_calendar.schemas import ReminderEmailRequest
 from ccaa_calendar.settings import Settings, get_settings
@@ -77,9 +80,10 @@ def send_google_reminder_email(
     payload: ReminderEmailRequest,
     session: SessionDep,
     settings: SettingsDep,
+    current_user: EditorUserDep,
 ) -> dict[str, object]:
     event = session.get(Event, event_id)
-    if not event:
+    if not event or event.organization_id != current_user.organization_id:
         raise HTTPException(status_code=404, detail="Event not found.")
 
     try:
@@ -102,11 +106,8 @@ def send_google_reminder_email(
     }
 
 
-@router.get("/login")
-def google_login(
-    settings: SettingsDep,
-    include_gmail: bool = Query(default=True),
-) -> RedirectResponse:
+def _google_authorization_url(settings: Settings, include_gmail: bool) -> str:
+    """Construye una autorizacion OAuth de un uso para la cuenta oficial."""
     try:
         code_verifier = new_code_verifier()
         flow = make_flow(settings, include_gmail=include_gmail, code_verifier=code_verifier)
@@ -139,14 +140,36 @@ def google_login(
             "scopes": oauth_scopes(settings, include_gmail),
         },
     )
-    return RedirectResponse(authorization_url)
+    return authorization_url
+
+
+@router.post("/authorize-url")
+def google_authorize_url(
+    current_user: AdminUserDep,
+    settings: SettingsDep,
+    include_gmail: bool = Query(default=True),
+) -> dict[str, str]:
+    del current_user
+    return {"authorization_url": _google_authorization_url(settings, include_gmail)}
+
+
+@router.get("/login")
+def google_login(
+    current_user: AdminUserDep,
+    settings: SettingsDep,
+    include_gmail: bool = Query(default=True),
+) -> RedirectResponse:
+    del current_user
+    return RedirectResponse(_google_authorization_url(settings, include_gmail))
 
 
 @router.get("/events")
 def list_google_events(
+    current_user: CurrentAdminUserDep,
     settings: SettingsDep,
     max_results: int = Query(default=40, ge=1, le=100),
 ) -> dict[str, object]:
+    del current_user
     try:
         events = google_calendar_events(settings, max_results=max_results)
     except GoogleCalendarTokenMissingError:
@@ -170,11 +193,12 @@ def sync_google_event(
     event_id: str,
     session: SessionDep,
     settings: SettingsDep,
+    current_user: EditorUserDep,
     dry_run: bool = Query(default=True),
     confirm: str = Query(default=""),
 ) -> dict[str, object]:
     event = session.get(Event, event_id)
-    if not event:
+    if not event or event.organization_id != current_user.organization_id:
         raise HTTPException(status_code=404, detail="Event not found.")
 
     payload = google_event_payload(event)
@@ -191,23 +215,75 @@ def sync_google_event(
             detail="Set confirm=sync-google-calendar to publish this event to Google Calendar.",
         )
 
+    was_linked = bool(event.google_event_id)
     try:
-        google_event = insert_google_calendar_event(event, settings)
+        google_event = (
+            update_google_calendar_event(event, settings)
+            if was_linked
+            else insert_google_calendar_event(event, settings)
+        )
     except GoogleCalendarTokenMissingError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except GoogleCalendarSyncError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
 
     event.google_calendar_id = settings.google_calendar_id
     event.google_event_id = google_event.get("id")
     event.source = "google_sync"
     session.add(event)
+    session.add(
+        AuditLog(
+            organization_id=event.organization_id,
+            actor_user_id=current_user.id,
+            action="google.event_update" if was_linked else "google.event_publish",
+            entity_type="event",
+            entity_id=event.id,
+            payload={"google_event_id": event.google_event_id},
+        )
+    )
     session.commit()
 
     return {
-        "mode": "synced",
+        "mode": "updated" if was_linked else "synced",
         "event_id": event.id,
         "google_calendar_id": event.google_calendar_id,
         "google_event_id": event.google_event_id,
     }
+
+
+@router.delete("/events/{event_id}/sync")
+def delete_synced_google_event(
+    event_id: str,
+    session: SessionDep,
+    settings: SettingsDep,
+    current_user: EditorUserDep,
+) -> dict[str, str]:
+    event = session.get(Event, event_id)
+    if not event or event.organization_id != current_user.organization_id:
+        raise HTTPException(status_code=404, detail="Event not found.")
+
+    try:
+        delete_google_calendar_event(event, settings)
+    except GoogleCalendarTokenMissingError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except GoogleCalendarSyncError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+    event.google_event_id = None
+    event.google_calendar_id = None
+    session.add(event)
+    session.add(
+        AuditLog(
+            organization_id=event.organization_id,
+            actor_user_id=current_user.id,
+            action="google.event_delete",
+            entity_type="event",
+            entity_id=event.id,
+            payload={},
+        )
+    )
+    session.commit()
+    return {"mode": "deleted", "event_id": event.id}
 
 
 @router.get("/callback", response_class=HTMLResponse)

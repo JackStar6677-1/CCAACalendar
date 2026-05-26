@@ -12,7 +12,7 @@
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="icon" href="/assets/orbit-icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/assets/orbit-icon.svg" />
-    <link rel="stylesheet" href="/assets/styles.css?v=19" />
+    <link rel="stylesheet" href="/assets/styles.css?v=21" />
   </head>
   <body class="theme-workspace">
     <main class="shell" data-screen="login">
@@ -174,7 +174,7 @@
               <span>Google del centro</span>
               <strong id="google-status-badge">...</strong>
               <p class="status-detail" id="google-status-detail"></p>
-              <a class="status-link" href="/api/integrations/google/login">Conectar</a>
+              <button class="status-link" id="google-status-connect-button" type="button">Conectar</button>
             </div>
           </section>
 
@@ -205,7 +205,7 @@
               <div class="agenda-list" id="agenda-list"></div>
               <div class="google-panel google-panel-compact">
                 <p>Una cuenta Google del centro. Cada integrante entra con su RUT.</p>
-                <a class="google-link" href="/api/integrations/google/login">Conectar calendario y correo del centro</a>
+                <button class="google-link" id="google-connect-button" type="button">Conectar calendario y correo del centro</button>
               </div>
             </aside>
           </div>
@@ -383,8 +383,8 @@
         <form method="dialog" id="event-form">
           <div class="panel-heading">
             <div>
-              <span class="eyebrow">Crear evento rapido</span>
-              <h3>Nuevo movimiento orbital</h3>
+              <span class="eyebrow" id="event-dialog-eyebrow">Crear evento rapido</span>
+              <h3 id="event-dialog-title">Nuevo evento</h3>
             </div>
             <button class="icon-button" value="cancel" aria-label="Cerrar">x</button>
           </div>
@@ -429,10 +429,10 @@
             </label>
           </div>
           <p class="microcopy" id="event-save-status">Activa Alertas en la barra superior. Los correos masivos usan la cuenta Google del centro.</p>
-          <button class="primary-action" type="submit">Guardar en calendario</button>
+          <button class="primary-action" id="event-submit-button" type="submit">Guardar en calendario</button>
         </form>
       </dialog>
     </main>
-    <script src="/assets/app.js?v=19" type="module"></script>
+    <script src="/assets/app.js?v=21" type="module"></script>
   </body>
 </html>

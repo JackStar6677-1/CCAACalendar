@@ -84,13 +84,13 @@ El ejemplo clave es el auditorio:
 | --- | --- |
 | Web/PWA, sin mezclar Gmail personal | Hecho en piloto |
 | Cuenta Google solo del centro + RUT interno | Hecho |
-| Eventos del centro en web + sync a Google | Parcial |
+| Eventos del centro en web + sync a Google | Parcial (crear, editar y cancelar desde app; falta ingestión robusta) |
 | Feriados y categorías | Parcial |
 | Reserva de auditorio / espacios | Parcial (API + choques; falta UI visual fuerte) |
 | Recordatorios (correo / navegador) | Parcial |
-| Importación calendario anual | Pendiente |
+| Importación calendario anual | Operativa en piloto (previsualización y edición previa) |
 | Multi-centro y capas | Pendiente (modelo listo) |
-| Sync bidireccional Google | Parcial |
+| Sync bidireccional Google | Parcial (publicación/actualización/cancelación; falta reconciliación automática) |
 | Anuncios y estadísticas | Pendiente |
 
 Ver tabla detallada en el [README](../README.md#avance-frente-a-lo-pedido-resumen-kika--ccaa).

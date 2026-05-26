@@ -75,6 +75,15 @@ class EventCreate(BaseModel):
     notify_subscribers: bool = True
 
 
+class EventUpdate(BaseModel):
+    title: str | None = Field(default=None, min_length=2, max_length=220)
+    description: str | None = Field(default=None, max_length=4000)
+    category: str | None = Field(default=None, max_length=60)
+    visibility: str | None = Field(default=None, max_length=40)
+    starts_at: datetime | None = None
+    ends_at: datetime | None = None
+
+
 class SpaceReservationCreate(BaseModel):
     organization_id: str
     space_id: str

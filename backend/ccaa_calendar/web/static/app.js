@@ -25,9 +25,14 @@ const metricHolidays = document.querySelector("#metric-holidays");
 const missionStrip = document.querySelector("#mission-strip");
 const googleStatusBadge = document.querySelector("#google-status-badge");
 const googleStatusDetail = document.querySelector("#google-status-detail");
+const googleStatusConnectButton = document.querySelector("#google-status-connect-button");
+const googleConnectButton = document.querySelector("#google-connect-button");
 const dialog = document.querySelector("#event-dialog");
 const eventForm = document.querySelector("#event-form");
 const eventSaveStatus = document.querySelector("#event-save-status");
+const eventDialogEyebrow = document.querySelector("#event-dialog-eyebrow");
+const eventDialogTitle = document.querySelector("#event-dialog-title");
+const eventSubmitButton = document.querySelector("#event-submit-button");
 const newEventButton = document.querySelector("#new-event-button");
 const todayButton = document.querySelector("#today-button");
 const prevMonthButton = document.querySelector("#prev-month-button");
@@ -76,6 +81,7 @@ let currentView = "calendar";
 let spaces = [];
 let reservations = [];
 let currentAcademicImport;
+let editingEventId;
 
 const PLACEHOLDER_TITLES = new Set([
   "reunion centro de estudiantes",
@@ -209,6 +215,7 @@ function isPlaceholderEvent(event) {
 function uniqueEvents(items) {
   return items
     .filter((event) => !isPlaceholderEvent(event))
+    .filter((event) => event.status !== "cancelled")
     .filter((event, index, list) => list.findIndex((item) => item.id === event.id) === index);
 }
 
@@ -465,6 +472,7 @@ function candidateDateValue(raw) {
 }
 
 function prepareEventFormForSelectedDay() {
+  editingEventId = undefined;
   const base = new Date(`${selectedDate}T10:00:00`);
   const end = new Date(base);
   end.setHours(base.getHours() + 1);
@@ -472,7 +480,23 @@ function prepareEventFormForSelectedDay() {
   eventForm.elements.ends_at.value = toDateTimeLocalValue(end);
   eventForm.elements.title.value = "";
   eventForm.elements.description.value = "";
+  eventDialogEyebrow.textContent = "Crear evento rapido";
+  eventDialogTitle.textContent = "Nuevo evento";
+  eventSubmitButton.textContent = "Guardar en calendario";
   setEventSaveStatus("El evento puede quedar local o sincronizarse al Google oficial.", "neutral");
+}
+
+function prepareEventFormForEdit(event) {
+  editingEventId = event.id;
+  eventForm.elements.title.value = event.title;
+  eventForm.elements.category.value = normalizeCategory(event.category);
+  eventForm.elements.starts_at.value = toDateTimeLocalValue(new Date(event.starts_at));
+  eventForm.elements.ends_at.value = toDateTimeLocalValue(new Date(event.ends_at));
+  eventForm.elements.description.value = event.description || "";
+  eventDialogEyebrow.textContent = "Editar evento";
+  eventDialogTitle.textContent = "Actualizar actividad";
+  eventSubmitButton.textContent = "Guardar cambios";
+  setEventSaveStatus("Los cambios pueden actualizar el evento enlazado en Google.", "neutral");
 }
 
 function buildMonthDays() {
@@ -653,23 +677,42 @@ function renderAgenda() {
     .forEach((event, index) => {
       const item = document.createElement("article");
       item.className = `agenda-item ${event.category === "holiday" ? "holiday" : normalizeCategory(event.category)}`;
-      item.innerHTML = `
-        <strong>${event.title}</strong>
-        <span>${formatTime(event)}</span>
-        <p>${event.description || "Sin detalle todavia."}</p>
-      `;
+      const title = document.createElement("strong");
+      title.textContent = event.title;
+      const time = document.createElement("span");
+      time.textContent = formatTime(event);
+      const description = document.createElement("p");
+      description.textContent = event.description || "Sin detalle todavia.";
+      item.append(title, time, description);
       if (event.category !== "holiday") {
         const actions = document.createElement("div");
         actions.className = "agenda-actions";
         if (event.google_event_id || event.source === "google_calendar") {
           actions.innerHTML = `<span class="sync-chip">Sincronizado</span>`;
-        } else if (!String(event.id).startsWith("seed-")) {
+        } else if (authSession?.token && !String(event.id).startsWith("seed-")) {
           const syncButton = document.createElement("button");
           syncButton.type = "button";
           syncButton.className = "mini-action";
           syncButton.textContent = "Sincronizar Google";
           syncButton.addEventListener("click", () => syncEventToGoogle(event.id));
           actions.append(syncButton);
+        }
+
+        if (authSession?.token && event.source !== "google_calendar" && !String(event.id).startsWith("seed-")) {
+          const editButton = document.createElement("button");
+          editButton.type = "button";
+          editButton.className = "mini-action ghost";
+          editButton.textContent = "Editar";
+          editButton.addEventListener("click", () => {
+            prepareEventFormForEdit(event);
+            dialog.showModal();
+          });
+          const cancelButton = document.createElement("button");
+          cancelButton.type = "button";
+          cancelButton.className = "mini-action ghost";
+          cancelButton.textContent = "Cancelar";
+          cancelButton.addEventListener("click", () => cancelLocalEvent(event));
+          actions.append(editButton, cancelButton);
         }
 
         const reminderButton = document.createElement("button");
@@ -750,8 +793,11 @@ async function hydrateGoogleStatus() {
 }
 
 async function hydrateGoogleEvents() {
+  if (!authSession?.token) return;
   try {
-    const response = await trackedFetch("/api/integrations/google/events?max_results=20");
+    const response = await trackedFetch("/api/integrations/google/events?max_results=20", {
+      headers: authHeaders(),
+    });
     if (!response.ok) return;
     const payload = await response.json();
     if (!payload.connected) return;
@@ -788,19 +834,7 @@ async function ensurePrimaryOrganization() {
   const organizations = response.ok ? await response.json() : [];
   const existing = organizations.find((item) => item.slug === "ccaa-psicologia");
   if (existing) return existing.id;
-
-  const created = await trackedFetch("/api/organizations", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      name: "Centro de Estudiantes de Psicología · UDLA Maipú",
-      slug: "ccaa-psicologia",
-      domain_hint: "udla-maipu-psicologia",
-    }),
-  });
-
-  if (!created.ok) return undefined;
-  return (await created.json()).id;
+  return undefined;
 }
 
 async function hydrateFromApi() {
@@ -1219,9 +1253,9 @@ async function commitAcademicImport() {
 
   const invalidCandidate = editedCandidates.find(
     (candidate) =>
-      !candidate.title || Number.isNaN(new Date(candidate.starts_at).getTime()) ||
-      Number.isNaN(new Date(candidate.ends_at).getTime()) ||
-      new Date(candidate.ends_at) <= new Date(candidate.starts_at),
+      !candidate.title || Number.isNaN(candidate.starts_at_date.getTime()) ||
+      Number.isNaN(candidate.ends_at_date.getTime()) ||
+      candidate.ends_at_date <= candidate.starts_at_date,
   );
   if (invalidCandidate) {
     setImportStatus("Revisa titulos y horarios: cada hito debe terminar despues de iniciar.", "warning");
@@ -1326,6 +1360,10 @@ async function saveProfileNotifications() {
 }
 
 async function createEventFromForm(formData) {
+  if (!authSession?.token) {
+    setEventSaveStatus("Inicia sesion para guardar eventos.", "warning");
+    return null;
+  }
   const localEvent = {
     id: crypto.randomUUID(),
     title: formData.get("title"),
@@ -1357,10 +1395,13 @@ async function createEventFromForm(formData) {
       events = [createdEvent, ...events];
       return createdEvent;
     }
+    const payload = await response.json().catch(() => ({}));
+    setEventSaveStatus(payload.detail || "No pudimos guardar el evento.", "warning");
+    return null;
   }
 
-  events = [localEvent, ...events];
-  return localEvent;
+  setEventSaveStatus("No se encontro la organizacion del centro. Recarga la pagina.", "warning");
+  return null;
 }
 
 async function syncEventToGoogle(eventId) {
@@ -1368,7 +1409,7 @@ async function syncEventToGoogle(eventId) {
   googleStatusDetail.textContent = "Enviando evento local al calendario oficial de Google.";
   const response = await trackedFetch(
     `/api/integrations/google/events/${eventId}/sync?dry_run=false&confirm=sync-google-calendar`,
-    { method: "POST" },
+    { method: "POST", headers: authHeaders() },
   );
 
   if (!response.ok) {
@@ -1392,6 +1433,68 @@ async function syncEventToGoogle(eventId) {
   googleStatusDetail.textContent = "Evento guardado en Google Calendar con recordatorios popup y correo.";
   render();
   return true;
+}
+
+async function updateEventFromForm(eventId, formData) {
+  const response = await trackedFetch(`/api/events/${eventId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({
+      title: formData.get("title"),
+      category: formData.get("category"),
+      visibility: "organization",
+      starts_at: new Date(formData.get("starts_at")).toISOString(),
+      ends_at: new Date(formData.get("ends_at")).toISOString(),
+      description: formData.get("description"),
+    }),
+  });
+  if (!response.ok) {
+    const payload = await response.json().catch(() => ({}));
+    setEventSaveStatus(payload.detail || "No pudimos actualizar el evento.", "warning");
+    return null;
+  }
+  const updated = await response.json();
+  events = events.map((item) => (item.id === updated.id ? updated : item));
+  return updated;
+}
+
+async function cancelLocalEvent(event) {
+  if (!window.confirm(`Cancelar "${event.title}"? Esta accion queda registrada.`)) return;
+  if (event.google_event_id) {
+    const googleResponse = await trackedFetch(`/api/integrations/google/events/${event.id}/sync`, {
+      method: "DELETE",
+      headers: authHeaders(),
+    });
+    if (!googleResponse.ok) {
+      googleStatusDetail.textContent = "No pudimos quitar el evento de Google; no se cancelo localmente.";
+      return;
+    }
+  }
+  const response = await trackedFetch(`/api/events/${event.id}`, {
+    method: "DELETE",
+    headers: authHeaders(),
+  });
+  if (!response.ok) return;
+  events = events.filter((item) => item.id !== event.id);
+  render();
+}
+
+async function beginGoogleConnection() {
+  if (!authSession?.token || !["admin", "owner"].includes(authSession.role)) {
+    googleStatusDetail.textContent = "Solo una administradora puede conectar la cuenta oficial.";
+    return;
+  }
+  googleStatusDetail.textContent = "Preparando autorizacion segura con Google...";
+  const response = await trackedFetch("/api/integrations/google/authorize-url", {
+    method: "POST",
+    headers: authHeaders(),
+  });
+  if (!response.ok) {
+    googleStatusDetail.textContent = "No pudimos iniciar la conexion Google.";
+    return;
+  }
+  const payload = await response.json();
+  window.location.assign(payload.authorization_url);
 }
 
 function showAuthStep(step) {
@@ -1437,8 +1540,8 @@ async function hydrateLoginBootstrap() {
     const response = await trackedFetch("/api/auth/bootstrap");
     if (!response.ok) return;
     const bootstrap = await response.json();
-    if (bootstrap.official_email) {
-      bootstrapOfficialEmail.textContent = bootstrap.official_email;
+    if (bootstrap.official_email_configured) {
+      bootstrapOfficialEmail.textContent = "Cuenta oficial configurada";
       const googleNote = bootstrap.google_token_present
         ? "Google Calendar del centro conectado."
         : "Pendiente conectar Google desde el panel (OAuth del correo oficial).";
@@ -1447,7 +1550,7 @@ async function hydrateLoginBootstrap() {
     }
     bootstrapOfficialEmail.textContent = "Correo oficial pendiente";
     bootstrapOfficialDetail.textContent =
-      "Define GOOGLE_CENTER_ACCOUNT_EMAIL en el servidor para mostrar el calendario institucional.";
+      "Define la cuenta oficial en el servidor para habilitar el calendario institucional.";
   } catch {
     bootstrapOfficialDetail.textContent = "No se pudo cargar la configuracion del centro.";
   }
@@ -1677,6 +1780,8 @@ viewButtons.forEach((button) => {
 
 refreshAdminButton?.addEventListener("click", hydrateAdmin);
 refreshSpacesButton?.addEventListener("click", hydrateSpaces);
+googleStatusConnectButton?.addEventListener("click", beginGoogleConnection);
+googleConnectButton?.addEventListener("click", beginGoogleConnection);
 
 spaceForm?.addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -1828,9 +1933,12 @@ notificationButton.addEventListener("click", async () => {
 eventForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   const formData = new FormData(eventForm);
-  setEventSaveStatus("Guardando evento local...", "neutral");
-  const createdEvent = await createEventFromForm(formData);
-  if (!createdEvent) {
+  const wasEditing = Boolean(editingEventId);
+  setEventSaveStatus(wasEditing ? "Guardando cambios..." : "Guardando evento local...", "neutral");
+  const savedEvent = wasEditing
+    ? await updateEventFromForm(editingEventId, formData)
+    : await createEventFromForm(formData);
+  if (!savedEvent) {
     setEventSaveStatus("No pudimos guardar el evento.", "warning");
     return;
   }
@@ -1839,11 +1947,11 @@ eventForm.addEventListener("submit", async (event) => {
     const permission = await ensureNotificationPermission();
     syncNotificationButtonState();
     if (permission === "granted") {
-      const scheduled = scheduleBrowserReminder(createdEvent, 30);
+      const scheduled = scheduleBrowserReminder(savedEvent, 30);
       if (scheduled) {
         await notifyNow(
           "Recordatorio programado",
-          `${createdEvent.title}: te avisaremos 30 min antes aunque cierres la pestana.`,
+          `${savedEvent.title}: te avisaremos 30 min antes aunque cierres la pestana.`,
         );
       } else {
         setEventSaveStatus(
@@ -1857,12 +1965,12 @@ eventForm.addEventListener("submit", async (event) => {
   }
 
   const notifyTeam = Boolean(formData.get("notify_subscribers"));
-  if (formData.get("sync_google") && !String(createdEvent.id).startsWith("seed-")) {
-    const synced = await syncEventToGoogle(createdEvent.id);
+  if (formData.get("sync_google") && !String(savedEvent.id).startsWith("seed-")) {
+    const synced = await syncEventToGoogle(savedEvent.id);
     if (synced && notifyTeam) {
       setEventSaveStatus(
         gmailAuthorized
-          ? "Evento guardado, sincronizado con Google y avisos por correo en cola."
+          ? "Evento guardado, sincronizado con Google y avisos por correo activos."
           : "Evento guardado y sincronizado. Reconecta Google con Gmail para enviar correos.",
         gmailAuthorized ? "success" : "warning",
       );
@@ -1884,8 +1992,9 @@ eventForm.addEventListener("submit", async (event) => {
       gmailAuthorized ? "success" : "warning",
     );
   } else {
-    setEventSaveStatus("Evento guardado localmente.", "success");
+    setEventSaveStatus(wasEditing ? "Cambios guardados localmente." : "Evento guardado localmente.", "success");
   }
+  editingEventId = undefined;
   dialog.close();
   chirp("gold");
   render();

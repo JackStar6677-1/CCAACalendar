@@ -41,6 +41,7 @@ flowchart LR
         O3[PWA + alertas]
         O4[Correos masivos]
         O5[Reservas + choques]
+        O6[Importador editable]
     end
 
     subgraph wip ["Parcial"]
@@ -48,13 +49,14 @@ flowchart LR
         W1[Google Calendar]
         W2[Gmail del centro]
         W3[Feriados y categorías]
+        W4[Edición y cancelación sync]
     end
 
     subgraph next ["Pendiente"]
         direction TB
-        N1[Importar calendario anual]
-        N2[Capas multi-centro]
-        N3[Mapa visual espacios]
+        N1[Capas multi-centro]
+        N2[Mapa visual espacios]
+        N3[Tokens cifrados en servidor]
     end
 
     ok ~~~ wip ~~~ next
@@ -89,10 +91,11 @@ flowchart TB
 
     class R1 cDone
     class R2,R3,R4,R5,R6,R9,R10 cWip
-    class R7,R8 cTodo
+    class R7 cDone
+    class R8 cTodo
 ```
 
-Leyenda: verde **hecho** · ámbar **parcial** · violeta **pendiente**. El boceto para demo está listo en identidad, login y calendario; la escala universidad pasa por importación académica y multi-centro.
+Leyenda: verde **hecho** · ámbar **parcial** · violeta **pendiente**. El piloto ya permite revisar y aprobar hitos importados antes de publicarlos; la escala universidad pasa por capas multi-centro y despliegue endurecido.
 
 ## Cerrar el piloto Psicología
 
@@ -247,9 +250,9 @@ flowchart TB
 
 ```mermaid
 flowchart LR
-    S[Directiva en servidor] --> L["/api/integrations/google/login"]
+    S[Directiva autenticada] --> L["Botón conectar\n/api/integrations/google/authorize-url"]
     L --> O[Consentimiento Google\nCalendar + Gmail]
-    O --> T[Token guardado\n.local seguro]
+    O --> T[Token guardado\n.local en desarrollo]
     T --> U[Listo: sync y correos]
 
     classDef step fill:#251933,stroke:#81e6c3,color:#fff7e8
@@ -286,31 +289,33 @@ flowchart LR
         D2[Calendario y reservas]
         D3[Correos HTML + cola]
         D4[Google OAuth sync]
+        D5[Importación editable]
+        D6[Eventos editar y cancelar]
     end
 
     subgraph soon ["Siguiente"]
         direction TB
-        S1[Importación académica]
-        S2[Capas y filtros UI]
-        S3[Mapa de espacios]
-        S4[Segundo centro prueba]
+        S1[Capas y filtros UI]
+        S2[Mapa de espacios]
+        S3[Segundo centro prueba]
+        S4[Tokens cifrados]
     end
 
     subgraph later ["Después"]
         direction TB
         L1[PostgreSQL en VPS]
         L2[Multi-org completa]
-        L3[Word PDF Excel]
+        L3[RLS y permisos DB]
         L4[RLS + storage privado]
     end
 
-    D4 --> S1
-    S4 --> L1
+    D6 --> S1
+    S3 --> L1
 
     classDef cDone fill:#2d6a4f,stroke:#81e6c3,color:#fff7e8
     classDef cSoon fill:#7a4a1a,stroke:#ffd166,color:#fff7e8
     classDef cLater fill:#3d2460,stroke:#8f5cff,color:#fff7e8
-    class D1,D2,D3,D4 cDone
+    class D1,D2,D3,D4,D5,D6 cDone
     class S1,S2,S3,S4 cSoon
     class L1,L2,L3,L4 cLater
 ```
@@ -368,7 +373,7 @@ flowchart TB
     GC --> OAuth[Pantalla OAuth + cliente Web]
     OAuth --> RU[Redirect URI producción y local]
     OAuth --> TU[Usuarios de prueba\ncorreo oficial del CE]
-    TU --> OK["Login /api/integrations/google/login"]
+    TU --> OK["Admin interna inicia OAuth"]
 
     classDef cloud fill:#1a3a52,stroke:#4a9eff,color:#fff7e8
     class GC,API1,API2,OAuth,RU,TU,OK cloud
@@ -397,8 +402,8 @@ flowchart LR
         C3[spaces / reservations]
     end
     subgraph google ["Google"]
-        G1[login / callback]
-        G2[sync / events]
+        G1[authorize-url / callback]
+        G2[sync / events protegidos]
     end
     subgraph admin ["Admin"]
         D1[users / audit]
