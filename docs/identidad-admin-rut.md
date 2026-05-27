@@ -14,6 +14,17 @@ CCAACalendar puede usar RUT como identificador unico de administradores y direct
 
 El RUT completo es dato personal sensible. No se debe commitear en el repo publico.
 
+## Proteccion de datos en reposo
+
+- El RUT se persiste solo como HMAC con pepper local; no requiere descifrado para autenticar.
+- Nombres y correos se cifran con Fernet autenticado mediante `PII_ENCRYPTION_KEYS`.
+- La busqueda por correo usa `PII_LOOKUP_PEPPER`, sin consultar por texto claro.
+- Tokens OAuth y el roster privado local se cifran con la misma capa de proteccion.
+- Las claves viven en `.env` local o secretos del servidor, nunca en Git.
+
+No se usa un algoritmo propio: inventar criptografia reduce la seguridad. La
+implementacion usa la biblioteca `cryptography` y admite rotacion de claves.
+
 Para desarrollo local se usa:
 
 ```text

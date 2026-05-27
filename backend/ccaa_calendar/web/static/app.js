@@ -1518,7 +1518,7 @@ async function beginGoogleConnection() {
     return;
   }
   googleStatusDetail.textContent = "Preparando autorizacion segura con Google...";
-  const response = await trackedFetch("/api/integrations/google/authorize-url", {
+  const response = await trackedFetch("/api/integrations/google/authorize-url?include_gmail=true", {
     method: "POST",
     headers: authHeaders(),
   });

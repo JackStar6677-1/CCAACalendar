@@ -7,15 +7,15 @@ Versiona estructura y comandos, pero nunca credenciales.
 
 - Las integrantes ingresan con RUT y clave interna.
 - Una administradora conecta la cuenta Google oficial una sola vez.
-- La primera autorización solicita solo `calendar.events`.
-- `gmail.send` queda apagado por defecto; activarlo obliga a volver a autorizar OAuth.
+- La autorización del panel solicita `calendar.events` y `gmail.send`.
+- `gmail.send` permite enviar avisos y recuperaciones desde la cuenta oficial, sin leer correos.
 
 ## Google Cloud Console
 
 En el proyecto OAuth de CCAACalendar:
 
 1. Habilitar **Google Calendar API**.
-2. Mantener **Gmail API** deshabilitada hasta requerir correos enviados por Gmail.
+2. Habilitar **Gmail API** para avisos y recuperaciones de clave.
 3. Configurar el cliente OAuth como **Aplicación web**.
 4. Agregar estos URI de redirección autorizados:
 
@@ -33,6 +33,13 @@ https://ccaa.drakescraft.cl
 6. Mientras la pantalla de consentimiento siga en prueba, agregar la cuenta oficial
    del centro como usuario de prueba.
 
+Scopes que solicita la app:
+
+```text
+https://www.googleapis.com/auth/calendar.events
+https://www.googleapis.com/auth/gmail.send
+```
+
 ## Archivos privados locales
 
 Los siguientes archivos deben existir localmente y están excluidos de Git:
@@ -45,6 +52,11 @@ Los siguientes archivos deben existir localmente y están excluidos de Git:
 %USERPROFILE%\.cloudflared\ccaa-calendar.yml
 %USERPROFILE%\.cloudflared\<tunnel-id>.json
 ```
+
+`PII_ENCRYPTION_KEYS`, `PII_LOOKUP_PEPPER` y `ADMIN_IDENTITY_PEPPER` se guardan
+solo en `.env` o en el gestor de secretos del servidor. Con clave configurada,
+CCAACalendar cifra nombres, correos, roster privado y tokens OAuth locales. Los
+RUT se localizan mediante hash con pepper y no se guardan completos en la base.
 
 Usar [`.env.example`](../.env.example) para desarrollo local o
 [`.env.production.example`](../.env.production.example) para un servidor.
@@ -86,8 +98,8 @@ Invoke-RestMethod https://ccaa.drakescraft.cl/api/health
 ```
 
 Resultado esperado antes de vincular Google: OAuth configurado, pero token ausente.
-Resultado esperado tras conectar desde el panel administrador: token presente y
-eventos creados en CCAACalendar sincronizables con el calendario oficial.
+Resultado esperado tras conectar desde el panel administrador: token presente,
+`gmail_authorized=true`, eventos sincronizables y avisos por correo habilitados.
 
 ## No subir a Git
 

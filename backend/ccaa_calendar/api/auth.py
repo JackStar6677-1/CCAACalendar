@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from ccaa_calendar.database import get_session
 from ccaa_calendar.domain.admin_roster import AdminRosterEntry, load_admin_roster
+from ccaa_calendar.domain.pii import lookup_hash, protect_text, reveal_text
 from ccaa_calendar.domain.rut import is_valid_rut, mask_rut, normalize_rut, rut_hash
 from ccaa_calendar.integrations.google_calendar import token_metadata
 from ccaa_calendar.integrations.google_oauth import is_google_oauth_configured
@@ -123,7 +124,7 @@ def _default_center(session: Session, organization: Organization, settings: Sett
     if center:
         center.name = "Centro de Estudiantes de Psicología"
         if official_email and not center.official_email:
-            center.official_email = official_email
+            center.official_email = protect_text(official_email, settings)
         session.add(center)
         return center
 
@@ -131,7 +132,7 @@ def _default_center(session: Session, organization: Organization, settings: Sett
         organization_id=organization.id,
         name="Centro de Estudiantes de Psicología",
         slug="psicologia",
-        official_email=official_email,
+        official_email=protect_text(official_email, settings),
         color="#7b3fe4",
     )
     session.add(center)
@@ -162,7 +163,9 @@ def _audit(
 
 def _roster_entry(settings: Settings, rut: str) -> AdminRosterEntry | None:
     target_hash = rut_hash(normalize_rut(rut), settings.admin_identity_pepper)
-    for entry in load_admin_roster(settings.admin_roster_path, settings.admin_identity_pepper):
+    for entry in load_admin_roster(
+        settings.admin_roster_path, settings.admin_identity_pepper, settings
+    ):
         if entry.rut_hash == target_hash:
             return entry
     return None
@@ -177,11 +180,13 @@ def _user_by_rut_hash(session: Session, organization_id: str, rut_hash_value: st
     )
 
 
-def _user_by_email(session: Session, organization_id: str, email: str) -> User | None:
+def _user_by_email(
+    session: Session, organization_id: str, email: str, settings: Settings
+) -> User | None:
     return session.scalar(
         select(User).where(
             User.organization_id == organization_id,
-            User.email == email,
+            User.email_lookup_hash == lookup_hash(email, settings),
         )
     )
 
@@ -197,24 +202,24 @@ def _lookup_hints(entry: AdminRosterEntry) -> dict[str, str | None]:
     }
 
 
-def _session_payload(user: User, token: str) -> AuthSessionRead:
+def _session_payload(user: User, token: str, settings: Settings) -> AuthSessionRead:
     ACTIVE_SESSIONS[token] = user.id
     return AuthSessionRead(
         token=token,
         user_id=user.id,
-        display_name=user.display_name,
-        email=user.email,
+        display_name=reveal_text(user.display_name, settings) or "",
+        email=reveal_text(user.email, settings) or "",
         role=user.role,
         rut_masked=user.rut_masked,
         email_notifications_enabled=bool(user.email_notifications_enabled),
     )
 
 
-def _profile_payload(user: User) -> UserProfileRead:
+def _profile_payload(user: User, settings: Settings) -> UserProfileRead:
     return UserProfileRead(
         user_id=user.id,
-        display_name=user.display_name,
-        email=user.email,
+        display_name=reveal_text(user.display_name, settings) or "",
+        email=reveal_text(user.email, settings) or "",
         role=user.role,
         rut_masked=user.rut_masked,
         email_notifications_enabled=bool(user.email_notifications_enabled),
@@ -261,8 +266,8 @@ AdminUserDep = Annotated[User, Depends(administrator_user)]
 
 
 @router.get("/me", response_model=UserProfileRead)
-def read_profile(current_user: CurrentAdminUserDep) -> UserProfileRead:
-    return _profile_payload(current_user)
+def read_profile(current_user: CurrentAdminUserDep, settings: SettingsDep) -> UserProfileRead:
+    return _profile_payload(current_user, settings)
 
 
 @router.patch("/me/notifications", response_model=UserProfileRead)
@@ -270,12 +275,13 @@ def update_notification_preferences(
     payload: UserNotificationPreferencesUpdate,
     current_user: CurrentAdminUserDep,
     session: SessionDep,
+    settings: SettingsDep,
 ) -> UserProfileRead:
     current_user.email_notifications_enabled = payload.email_notifications_enabled
     session.add(current_user)
     session.commit()
     session.refresh(current_user)
-    return _profile_payload(current_user)
+    return _profile_payload(current_user, settings)
 
 
 @router.get("/bootstrap", response_model=LoginBootstrapRead)
@@ -283,7 +289,11 @@ def login_bootstrap(session: SessionDep, settings: SettingsDep) -> LoginBootstra
     organization = _default_organization(session)
     center = _default_center(session, organization, settings)
     token = token_metadata(settings)
-    official_email = center.official_email or settings.google_center_account_email.strip() or None
+    official_email = (
+        reveal_text(center.official_email, settings)
+        or settings.google_center_account_email.strip()
+        or None
+    )
     session.commit()
 
     return LoginBootstrapRead(
@@ -355,7 +365,7 @@ def activate_admin_access(
             detail="Debes indicar un correo personal valido para tu cuenta.",
         )
 
-    email_owner = _user_by_email(session, organization.id, email)
+    email_owner = _user_by_email(session, organization.id, email, settings)
     if email_owner and (not existing or email_owner.id != existing.id):
         raise HTTPException(
             status_code=409,
@@ -372,14 +382,16 @@ def activate_admin_access(
         organization_id=organization.id,
         rut_hash=entry.rut_hash,
         rut_masked=entry.rut_masked,
-        email=email,
-        display_name=display_name,
+        email=protect_text(email, settings) or "",
+        email_lookup_hash=lookup_hash(email, settings),
+        display_name=protect_text(display_name, settings) or "",
         role=entry.role,
         is_active=True,
         email_notifications_enabled=True,
     )
-    user.email = email
-    user.display_name = display_name
+    user.email = protect_text(email, settings) or ""
+    user.email_lookup_hash = lookup_hash(email, settings)
+    user.display_name = protect_text(display_name, settings) or ""
     user.role = entry.role
     user.password_hash = hash_password(payload.password)
     user.last_login_at = utcnow()
@@ -400,7 +412,7 @@ def activate_admin_access(
         },
     )
     session.commit()
-    return _session_payload(user, token)
+    return _session_payload(user, token, settings)
 
 
 @router.post("/login", response_model=AuthSessionRead)
@@ -427,7 +439,7 @@ def login_admin(
         payload={"rut_masked": user.rut_masked or mask_rut(payload.rut)},
     )
     session.commit()
-    return _session_payload(user, token)
+    return _session_payload(user, token, settings)
 
 
 @router.post("/password-reset/request", response_model=PasswordResetResponse)

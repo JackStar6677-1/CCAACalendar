@@ -95,6 +95,10 @@ GOOGLE_CENTER_ACCOUNT_EMAIL=
 GOOGLE_CALENDAR_ID=primary
 ```
 
+El piloto usa `gmail.send` exclusivamente para mensajes salientes del sistema:
+no concede lectura del buzon. Si la cuenta se autorizo antes solo para Calendar,
+hay que reconectarla desde el panel para aceptar el scope adicional.
+
 ## Pendiente tecnico
 
 - Persistir cada conexion OAuth en la tabla de cuentas conectadas por centro.

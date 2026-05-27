@@ -25,7 +25,7 @@ class MailNotConfiguredError(MailDeliveryError):
 
 
 def _gmail_can_send(settings: Settings) -> bool:
-    token = read_json(settings.google_token_path)
+    token = read_json(settings.google_token_path, settings)
     if not token.get("token"):
         return False
     return settings.google_gmail_scopes in set(token.get("scopes", []))
@@ -55,7 +55,7 @@ def mail_from_header(settings: Settings) -> str:
 
 
 def _send_via_gmail_api(settings: Settings, message: EmailMessage) -> dict:
-    token = read_json(settings.google_token_path)
+    token = read_json(settings.google_token_path, settings)
     if settings.google_gmail_scopes not in set(token.get("scopes", [])):
         raise MailNotConfiguredError("Gmail API sin scope gmail.send.")
 

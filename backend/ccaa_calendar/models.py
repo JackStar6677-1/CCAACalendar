@@ -67,6 +67,7 @@ class User(TimestampMixin, Base):
     rut_hash: Mapped[str | None] = mapped_column(String(64), index=True)
     rut_masked: Mapped[str | None] = mapped_column(String(20))
     email: Mapped[str] = mapped_column(String(254), nullable=False, index=True)
+    email_lookup_hash: Mapped[str | None] = mapped_column(String(64), index=True)
     display_name: Mapped[str] = mapped_column(String(180), nullable=False)
     role: Mapped[str] = mapped_column(String(40), nullable=False, default="viewer")
     password_hash: Mapped[str | None] = mapped_column(String(255))
@@ -78,6 +79,12 @@ class User(TimestampMixin, Base):
 
     __table_args__ = (
         Index("ix_users_org_email", "organization_id", "email", unique=True),
+        Index(
+            "ix_users_org_email_lookup_hash",
+            "organization_id",
+            "email_lookup_hash",
+            unique=True,
+        ),
         Index("ix_users_org_rut_hash", "organization_id", "rut_hash", unique=True),
     )
 

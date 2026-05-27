@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import UTC
 
+from ccaa_calendar.domain.pii import reveal_text
 from ccaa_calendar.integrations.email_templates import (
     category_accent,
     category_label,
@@ -27,7 +28,8 @@ def _event_detail_rows(event: Event) -> list[tuple[str, str]]:
 
 
 def event_created_email(settings: Settings, event: Event, user: User) -> str:
-    name = user.display_name or "integrante del centro"
+    name = reveal_text(user.display_name, settings) or "integrante del centro"
+    email = reveal_text(user.email, settings) or ""
     app_url = settings.app_public_url.rstrip("/")
     subject = f"Agendado en CCAACalendar: {event.title}"
     body_text = "\n".join(
@@ -66,7 +68,7 @@ def event_created_email(settings: Settings, event: Event, user: User) -> str:
     )
     return send_email(
         settings,
-        to=user.email,
+        to=email,
         subject=subject,
         body_text=body_text,
         body_html=body_html,
@@ -81,7 +83,8 @@ def event_reminder_email(
     *,
     minutes_before: int,
 ) -> str:
-    name = user.display_name or "integrante del centro"
+    name = reveal_text(user.display_name, settings) or "integrante del centro"
+    email = reveal_text(user.email, settings) or ""
     app_url = settings.app_public_url.rstrip("/")
     hours = minutes_before // 60
     time_label = (
@@ -121,7 +124,7 @@ def event_reminder_email(
     )
     return send_email(
         settings,
-        to=user.email,
+        to=email,
         subject=subject,
         body_text=body_text,
         body_html=body_html,
@@ -136,7 +139,8 @@ def password_reset_email(
 ) -> str:
     base = settings.app_public_url.rstrip("/")
     reset_link = f"{base}/?reset_token={reset_token}"
-    name = user.display_name or "integrante del centro"
+    name = reveal_text(user.display_name, settings) or "integrante del centro"
+    email = reveal_text(user.email, settings) or ""
     subject = "Recuperar clave de CCAACalendar"
     body_text = "\n".join(
         [
@@ -172,7 +176,7 @@ def password_reset_email(
     )
     return send_email(
         settings,
-        to=user.email,
+        to=email,
         subject=subject,
         body_text=body_text,
         body_html=body_html,

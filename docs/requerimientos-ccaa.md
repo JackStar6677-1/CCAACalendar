@@ -87,11 +87,14 @@ El ejemplo clave es el auditorio:
 | Eventos del centro en web + sync a Google | Parcial (crear, editar y cancelar desde app; falta ingestión robusta) |
 | Feriados y categorías | Parcial |
 | Reserva de auditorio / espacios | Parcial (API + choques; falta UI visual fuerte) |
-| Recordatorios (correo / navegador) | Parcial |
+| Recordatorios (correo / navegador) | Parcial (Gmail preparado; falta reautorizar cuenta oficial y validar envio real) |
 | Importación calendario anual | Operativa en piloto (previsualización y edición previa) |
 | Multi-centro y capas | Pendiente (modelo listo) |
 | Sync bidireccional Google | Parcial (publicación/actualización/cancelación; falta reconciliación automática) |
 | Anuncios y estadísticas | Pendiente |
 
 Ver tabla detallada en el [README](../README.md#avance-frente-a-lo-pedido-resumen-kika--ccaa).
+
+Para levantar datos del piloto sin publicarlos en Git, usar el
+[checklist privado para Kika](checklist-piloto-kika.md).
 

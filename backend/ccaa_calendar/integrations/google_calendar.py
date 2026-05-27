@@ -45,7 +45,7 @@ ACADEMIC_EVENT_KEYWORDS = {
 
 
 def _calendar_service(settings: Settings):
-    token = read_json(settings.google_token_path)
+    token = read_json(settings.google_token_path, settings)
     if not token:
         raise GoogleCalendarTokenMissingError("Google Calendar token is missing.")
 
@@ -88,7 +88,7 @@ def google_event_payload(event: Event) -> dict[str, Any]:
 
 
 def token_metadata(settings: Settings) -> dict[str, Any]:
-    token = read_json(settings.google_token_path)
+    token = read_json(settings.google_token_path, settings)
     if not token:
         return {
             "token_present": False,

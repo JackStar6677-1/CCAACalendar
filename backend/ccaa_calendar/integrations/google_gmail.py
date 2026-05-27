@@ -20,7 +20,7 @@ class GmailSendError(RuntimeError):
 
 
 def _gmail_service(settings: Settings):
-    token = read_json(settings.google_token_path)
+    token = read_json(settings.google_token_path, settings)
     scopes = set(token.get("scopes", []))
     if not token or settings.google_gmail_scopes not in scopes:
         raise GmailSendNotAuthorizedError(
@@ -65,7 +65,7 @@ def send_event_reminder_email(
     minutes_before: int = 60,
     note: str = "",
 ) -> dict:
-    token = read_json(settings.google_token_path)
+    token = read_json(settings.google_token_path, settings)
     if settings.google_gmail_scopes not in set(token.get("scopes", [])):
         raise GmailSendNotAuthorizedError(
             "Gmail send scope is missing. Reconnect Google with include_gmail=true."

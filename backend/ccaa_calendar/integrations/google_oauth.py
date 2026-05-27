@@ -8,6 +8,7 @@ from typing import Any
 
 from google_auth_oauthlib.flow import Flow
 
+from ccaa_calendar.domain.pii import read_protected_json, write_protected_json
 from ccaa_calendar.settings import Settings
 
 GOOGLE_AUTH_URI = "https://accounts.google.com/o/oauth2/auth"
@@ -97,15 +98,12 @@ def make_flow(
     )
 
 
-def write_json(path: str | Path, payload: dict[str, Any]) -> None:
-    target = Path(path)
-    target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+def write_json(path: str | Path, payload: dict[str, Any], settings: Settings) -> None:
+    """Persiste estado/token OAuth cifrado cuando la proteccion privada esta configurada."""
+    write_protected_json(path, payload, settings)
 
 
-def read_json(path: str | Path) -> dict[str, Any]:
-    target = Path(path)
-    if not target.exists():
-        return {}
-    return json.loads(target.read_text(encoding="utf-8"))
+def read_json(path: str | Path, settings: Settings) -> dict[str, Any]:
+    """Lee JSON OAuth cifrado y mantiene compatibilidad con archivos locales heredados."""
+    return read_protected_json(path, settings)
 

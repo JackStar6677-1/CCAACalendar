@@ -130,6 +130,7 @@ def _google_authorization_url(settings: Settings, include_gmail: bool) -> str:
             "code_verifier": code_verifier,
             "scopes": oauth_scopes(settings, include_gmail),
         },
+        settings,
     )
     write_app_log(
         settings,
@@ -288,7 +289,7 @@ def delete_synced_google_event(
 
 @router.get("/callback", response_class=HTMLResponse)
 def google_callback(request: Request, settings: SettingsDep) -> HTMLResponse:
-    expected = read_json(settings.google_oauth_state_path)
+    expected = read_json(settings.google_oauth_state_path, settings)
     state = request.query_params.get("state", "")
     if not expected or state != expected.get("state"):
         raise HTTPException(status_code=400, detail="Invalid Google OAuth state.")
@@ -330,6 +331,7 @@ def google_callback(request: Request, settings: SettingsDep) -> HTMLResponse:
             "account_email": expected.get("account_email", settings.google_center_account_email),
             "calendar_id": expected.get("calendar_id", settings.google_calendar_id),
         },
+        settings,
     )
     write_app_log(
         settings,

@@ -252,7 +252,7 @@ flowchart TB
 flowchart LR
     S[Directiva autenticada] --> L["Botón conectar\n/api/integrations/google/authorize-url"]
     L --> O[Consentimiento Google\nCalendar + Gmail]
-    O --> T[Token guardado\n.local en desarrollo]
+    O --> T[Token cifrado\n.local en desarrollo]
     T --> U[Listo: sync y correos]
 
     classDef step fill:#251933,stroke:#81e6c3,color:#fff7e8
@@ -441,6 +441,7 @@ Paleta: naranjo `#ff7a2f` · violeta `#8f5cff` · dorado `#ffd166` · fondo `#16
 - [`docs/diseno-calendario-multiusuario-y-bloqueos.md`](docs/diseno-calendario-multiusuario-y-bloqueos.md)
 - [`docs/evaluacion-insforge.md`](docs/evaluacion-insforge.md)
 - [`docs/despliegue-demo-google-cloudflare.md`](docs/despliegue-demo-google-cloudflare.md)
+- [`docs/checklist-piloto-kika.md`](docs/checklist-piloto-kika.md)
 
 ## Licencia
 

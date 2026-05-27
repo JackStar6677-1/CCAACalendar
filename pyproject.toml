@@ -17,6 +17,7 @@ dependencies = [
     "python-multipart>=0.0.29",
     "openpyxl>=3.1.5",
     "pypdf>=6.12.1",
+    "cryptography>=45.0.0",
 ]
 
 [dependency-groups]

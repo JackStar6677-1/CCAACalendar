@@ -5,7 +5,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from ccaa_calendar.domain.pii import read_protected_json
 from ccaa_calendar.domain.rut import is_valid_rut, mask_rut, normalize_rut, rut_hash
+from ccaa_calendar.settings import Settings
 
 
 @dataclass(frozen=True)
@@ -42,12 +44,20 @@ def _entry_from_payload(payload: dict[str, Any], pepper: str) -> AdminRosterEntr
     )
 
 
-def load_admin_roster(path: str | Path, pepper: str) -> list[AdminRosterEntry]:
+def load_admin_roster(
+    path: str | Path,
+    pepper: str,
+    settings: Settings | None = None,
+) -> list[AdminRosterEntry]:
     roster_path = Path(path)
     if not roster_path.exists():
         return []
 
-    data = json.loads(roster_path.read_text(encoding="utf-8"))
+    data = (
+        read_protected_json(roster_path, settings)
+        if settings is not None
+        else json.loads(roster_path.read_text(encoding="utf-8"))
+    )
     entries = data.get("admins", data if isinstance(data, list) else [])
     return [_entry_from_payload(item, pepper) for item in entries if isinstance(item, dict)]
 

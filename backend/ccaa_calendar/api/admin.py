@@ -6,23 +6,32 @@ from sqlalchemy.orm import Session
 
 from ccaa_calendar.api.auth import CurrentAdminUserDep
 from ccaa_calendar.database import get_session
+from ccaa_calendar.domain.pii import reveal_text
 from ccaa_calendar.models import AuditLog, User
 from ccaa_calendar.schemas import AdminUserRead, AdminUserUpdate, AuditLogRead
+from ccaa_calendar.settings import Settings, get_settings
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 SessionDep = Annotated[Session, Depends(get_session)]
+SettingsDep = Annotated[Settings, Depends(get_settings)]
 ADMIN_ROLES = {"admin", "owner"}
 
 
 @router.get("/users", response_model=list[AdminUserRead])
-def list_admin_users(current_user: CurrentAdminUserDep, session: SessionDep) -> list[User]:
+def list_admin_users(
+    current_user: CurrentAdminUserDep, session: SessionDep, settings: SettingsDep
+) -> list[AdminUserRead]:
     _require_admin(current_user)
-    stmt = (
-        select(User)
-        .where(User.organization_id == current_user.organization_id)
-        .order_by(User.is_active.desc(), User.display_name)
+    users = list(
+        session.scalars(select(User).where(User.organization_id == current_user.organization_id))
     )
-    return list(session.scalars(stmt))
+    users.sort(
+        key=lambda user: (
+            not user.is_active,
+            (reveal_text(user.display_name, settings) or "").casefold(),
+        )
+    )
+    return [_admin_user_payload(user, settings) for user in users]
 
 
 @router.patch("/users/{user_id}", response_model=AdminUserRead)
@@ -31,7 +40,8 @@ def update_admin_user(
     payload: AdminUserUpdate,
     current_user: CurrentAdminUserDep,
     session: SessionDep,
-) -> User:
+    settings: SettingsDep,
+) -> AdminUserRead:
     """Actualiza permisos operativos sin tocar RUT ni contraseña de la usuaria."""
     _require_admin(current_user)
     user = session.get(User, user_id)
@@ -71,7 +81,7 @@ def update_admin_user(
         )
         session.commit()
         session.refresh(user)
-    return user
+    return _admin_user_payload(user, settings)
 
 
 @router.get("/audit", response_model=list[AuditLogRead])
@@ -98,3 +108,17 @@ def _require_admin(user: User) -> None:
 def _guard_self_lockout(current_user: User, target_user: User, detail: str) -> None:
     if current_user.id == target_user.id:
         raise HTTPException(status_code=400, detail=detail)
+
+
+def _admin_user_payload(user: User, settings: Settings) -> AdminUserRead:
+    return AdminUserRead(
+        id=user.id,
+        display_name=reveal_text(user.display_name, settings) or "",
+        email=reveal_text(user.email, settings) or "",
+        role=user.role,
+        rut_masked=user.rut_masked,
+        is_active=user.is_active,
+        email_notifications_enabled=user.email_notifications_enabled,
+        last_login_at=user.last_login_at,
+        created_at=user.created_at,
+    )

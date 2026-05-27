@@ -6,6 +6,7 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from ccaa_calendar.domain.pii import protect_text
 from ccaa_calendar.integrations.mail_delivery import MailDeliveryError, MailNotConfiguredError
 from ccaa_calendar.integrations.transactional_mail import event_created_email, event_reminder_email
 from ccaa_calendar.models import Event, EventEmailQueue, User
@@ -48,7 +49,7 @@ def enqueue_event_notifications(
             EventEmailQueue(
                 event_id=event.id,
                 user_id=user.id,
-                recipient_email=user.email,
+                recipient_email=protect_text(user.email, settings) or "",
                 kind="created",
                 minutes_before=None,
                 fire_at=now,
@@ -66,7 +67,7 @@ def enqueue_event_notifications(
                 EventEmailQueue(
                     event_id=event.id,
                     user_id=user.id,
-                    recipient_email=user.email,
+                    recipient_email=protect_text(user.email, settings) or "",
                     kind="reminder",
                     minutes_before=minutes_before,
                     fire_at=fire_at,

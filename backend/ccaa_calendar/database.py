@@ -1,7 +1,7 @@
 from collections.abc import Generator
 from pathlib import Path
 
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, select, text
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 from ccaa_calendar.settings import get_settings
@@ -50,6 +50,7 @@ def init_database() -> None:
 
     Base.metadata.create_all(bind=engine)
     _apply_sqlite_dev_migrations()
+    _protect_sensitive_local_data()
 
 
 def _apply_sqlite_dev_migrations() -> None:
@@ -59,6 +60,7 @@ def _apply_sqlite_dev_migrations() -> None:
     required_user_columns = {
         "rut_hash": "VARCHAR(64)",
         "rut_masked": "VARCHAR(20)",
+        "email_lookup_hash": "VARCHAR(64)",
         "password_hash": "VARCHAR(255)",
         "password_reset_token_hash": "VARCHAR(255)",
         "password_reset_expires_at": "DATETIME",
@@ -88,6 +90,12 @@ def _apply_sqlite_dev_migrations() -> None:
                 "WHERE email_notifications_enabled IS NULL"
             )
         )
+        connection.execute(
+            text(
+                "CREATE UNIQUE INDEX IF NOT EXISTS ix_users_org_email_lookup_hash "
+                "ON users (organization_id, email_lookup_hash)"
+            )
+        )
 
         event_table_exists = connection.execute(
             text("SELECT name FROM sqlite_master WHERE type='table' AND name='events'")
@@ -102,4 +110,54 @@ def _apply_sqlite_dev_migrations() -> None:
             if column_name not in existing_event_columns:
                 statement = f"ALTER TABLE events ADD COLUMN {column_name} {column_type}"
                 connection.execute(text(statement))
+
+
+def _protect_sensitive_local_data() -> None:
+    """Convierte datos locales heredados a campos cifrados al iniciar la aplicacion."""
+    from ccaa_calendar.domain.pii import (
+        data_protection_configured,
+        lookup_hash,
+        protect_json_file_if_plaintext,
+        protect_text,
+        reveal_text,
+    )
+    from ccaa_calendar.models import Center, EventEmailQueue, GoogleCalendarConnection, User
+
+    if not data_protection_configured(settings):
+        if not settings.is_local:
+            raise RuntimeError("PII_ENCRYPTION_KEYS es obligatoria para iniciar produccion.")
+        return
+
+    protect_json_file_if_plaintext(settings.admin_roster_path, settings)
+    protect_json_file_if_plaintext(settings.google_oauth_state_path, settings)
+    protect_json_file_if_plaintext(settings.google_token_path, settings)
+
+    with SessionLocal() as session:
+        for user in session.scalars(select(User)):
+            email = reveal_text(user.email, settings) or ""
+            user.email_lookup_hash = lookup_hash(email, settings)
+            user.email = protect_text(email, settings) or ""
+            user.display_name = protect_text(
+                reveal_text(user.display_name, settings), settings
+            ) or ""
+            session.add(user)
+
+        for center in session.scalars(select(Center)):
+            center.official_email = protect_text(
+                reveal_text(center.official_email, settings), settings
+            )
+            session.add(center)
+
+        for connection in session.scalars(select(GoogleCalendarConnection)):
+            connection.account_email = protect_text(
+                reveal_text(connection.account_email, settings), settings
+            ) or ""
+            session.add(connection)
+
+        for item in session.scalars(select(EventEmailQueue)):
+            item.recipient_email = protect_text(
+                reveal_text(item.recipient_email, settings), settings
+            ) or ""
+            session.add(item)
+        session.commit()
 

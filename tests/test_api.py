@@ -1,12 +1,27 @@
+# ruff: noqa: E402
+
 import json
 import os
+import tempfile
 import uuid
 from datetime import UTC, datetime
+from pathlib import Path
+
+# La suite nunca debe tocar datos operativos ni depender de secretos del .env local.
+TEST_DATABASE_PATH = Path(tempfile.gettempdir()) / f"ccaa-calendar-tests-{os.getpid()}.db"
+TEST_PRIVATE_DIR = Path(tempfile.gettempdir()) / f"ccaa-calendar-private-{os.getpid()}"
+os.environ["DATABASE_URL"] = f"sqlite:///{TEST_DATABASE_PATH.as_posix()}"
+os.environ["PII_ENCRYPTION_KEYS"] = ""
+os.environ["PII_LOOKUP_PEPPER"] = "test-suite-lookup-pepper"
+os.environ["GOOGLE_TOKEN_PATH"] = str(TEST_PRIVATE_DIR / "google-token.json")
+os.environ["GOOGLE_OAUTH_STATE_PATH"] = str(TEST_PRIVATE_DIR / "google-state.json")
+os.environ["ADMIN_ROSTER_PATH"] = str(TEST_PRIVATE_DIR / "admin-roster.json")
 
 from ccaa_calendar.api.auth import ACTIVE_SESSIONS
 from ccaa_calendar.database import SessionLocal, get_session
 from ccaa_calendar.domain.academic_import import parse_academic_calendar
 from ccaa_calendar.domain.admin_roster import load_admin_roster
+from ccaa_calendar.domain.pii import lookup_hash, protect_text, reveal_text, write_protected_json
 from ccaa_calendar.domain.rut import is_valid_rut, mask_rut, normalize_rut
 from ccaa_calendar.integrations.google_calendar import (
     _is_calendar_event_allowed,
@@ -17,6 +32,7 @@ from ccaa_calendar.main import app
 from ccaa_calendar.models import Event, EventEmailQueue, Organization, User
 from ccaa_calendar.security import hash_token, new_public_token
 from ccaa_calendar.settings import Settings, get_settings
+from cryptography.fernet import Fernet
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 
@@ -395,10 +411,10 @@ def test_google_calendar_filter_skips_private_personal_event() -> None:
 
 
 def test_rut_validation_and_masking() -> None:
-    assert normalize_rut("21.452.686-7") == "21452686-7"
-    assert is_valid_rut("21452686-7")
+    assert normalize_rut("12.345.678-5") == "12345678-5"
+    assert is_valid_rut("12345678-5")
     assert not is_valid_rut("21248704-2")
-    assert mask_rut("21452686-7") == "***686-7"
+    assert mask_rut("12345678-5") == "***678-5"
 
 
 def test_admin_roster_flags_invalid_ruts(tmp_path) -> None:
@@ -408,7 +424,7 @@ def test_admin_roster_flags_invalid_ruts(tmp_path) -> None:
         {
           "admins": [
             {
-              "rut": "21452686-7",
+              "rut": "12345678-5",
               "email": "demo@example.com",
               "display_name": "Demo",
               "role": "admin"
@@ -432,6 +448,49 @@ def test_admin_roster_flags_invalid_ruts(tmp_path) -> None:
     assert not entries[1].can_login
 
 
+def test_personal_data_encryption_and_blind_lookup() -> None:
+    settings = Settings(
+        pii_encryption_keys=Fernet.generate_key().decode("ascii"),
+        pii_lookup_pepper="pii-test-pepper",
+    )
+    protected = protect_text("directiva@example.com", settings)
+
+    assert protected and protected.startswith("fernet:v1:")
+    assert "directiva@example.com" not in protected
+    assert reveal_text(protected, settings) == "directiva@example.com"
+    assert lookup_hash("Directiva@Example.com", settings) == lookup_hash(
+        "directiva@example.com", settings
+    )
+
+
+def test_admin_roster_can_be_read_from_encrypted_local_file(tmp_path) -> None:
+    settings = Settings(
+        pii_encryption_keys=Fernet.generate_key().decode("ascii"),
+        pii_lookup_pepper="pii-test-pepper",
+        admin_identity_pepper="rut-test-pepper",
+    )
+    roster = tmp_path / "admins.enc"
+    write_protected_json(
+        roster,
+        {
+            "admins": [
+                {
+                    "rut": "12345678-5",
+                    "email": "directiva@example.com",
+                    "display_name": "Directiva Demo",
+                    "role": "admin",
+                }
+            ]
+        },
+        settings,
+    )
+
+    entries = load_admin_roster(roster, settings.admin_identity_pepper, settings)
+
+    assert entries[0].can_login
+    assert "directiva@example.com" not in roster.read_text(encoding="utf-8")
+
+
 def test_auth_lookup_reports_activation_and_login_states(tmp_path) -> None:
     test_email = f"lookup-{uuid.uuid4()}@example.com"
     roster = tmp_path / "admins.json"
@@ -440,7 +499,7 @@ def test_auth_lookup_reports_activation_and_login_states(tmp_path) -> None:
             {
                 "admins": [
                     {
-                        "rut": "21.452.686-7",
+                        "rut": "12.345.678-5",
                         "email": test_email,
                         "display_name": "Directiva Demo",
                         "role": "admin",
@@ -460,7 +519,7 @@ def test_auth_lookup_reports_activation_and_login_states(tmp_path) -> None:
         with TestClient(app) as client:
             needs_activation = client.post(
                 "/api/auth/lookup",
-                json={"rut": "21.452.686-7"},
+                json={"rut": "12.345.678-5"},
             )
             assert needs_activation.status_code == 200
             assert needs_activation.json()["status"] == "needs_activation"
@@ -469,14 +528,14 @@ def test_auth_lookup_reports_activation_and_login_states(tmp_path) -> None:
             client.post(
                 "/api/auth/activate",
                 json={
-                    "rut": "21.452.686-7",
+                    "rut": "12.345.678-5",
                     "password": "orbit-demo-seguro",
                     "first_name": "Directiva",
                     "last_name": "Demo",
                     "email": test_email,
                 },
             )
-            ready = client.post("/api/auth/lookup", json={"rut": "21452686-7"})
+            ready = client.post("/api/auth/lookup", json={"rut": "12345678-5"})
             assert ready.status_code == 200
             assert ready.json()["status"] == "ready_to_login"
 
@@ -507,13 +566,14 @@ def test_auth_bootstrap_does_not_expose_center_email(tmp_path) -> None:
 
 def test_admin_can_activate_and_login_with_rut(tmp_path) -> None:
     test_email = f"directiva-{uuid.uuid4()}@example.com"
+    created_user_id: str | None = None
     roster = tmp_path / "admins.json"
     roster.write_text(
         json.dumps(
             {
                 "admins": [
                     {
-                        "rut": "21.452.686-7",
+                        "rut": "12.345.678-5",
                         "email": test_email,
                         "display_name": "Directiva Demo",
                         "role": "admin",
@@ -524,20 +584,24 @@ def test_admin_can_activate_and_login_with_rut(tmp_path) -> None:
         encoding="utf-8",
     )
     pepper = f"test-pepper-{tmp_path.name}-{uuid.uuid4()}"
+    pii_lookup_pepper = f"lookup-{uuid.uuid4()}"
+    pii_encryption_key = Fernet.generate_key().decode("ascii")
     app.dependency_overrides[get_settings] = lambda: Settings(
         admin_roster_path=str(roster),
         admin_identity_pepper=pepper,
+        pii_lookup_pepper=pii_lookup_pepper,
+        pii_encryption_keys=pii_encryption_key,
     )
 
     try:
         with TestClient(app) as client:
             activate_response = client.post(
                 "/api/auth/activate",
-                json={"rut": "21.452.686-7", "password": "orbit-demo-seguro"},
+                json={"rut": "12.345.678-5", "password": "orbit-demo-seguro"},
             )
             login_response = client.post(
                 "/api/auth/login",
-                json={"rut": "21452686-7", "password": "orbit-demo-seguro"},
+                json={"rut": "12345678-5", "password": "orbit-demo-seguro"},
             )
             admin_response = client.get(
                 "/api/admin/users",
@@ -545,15 +609,22 @@ def test_admin_can_activate_and_login_with_rut(tmp_path) -> None:
             )
 
         assert activate_response.status_code == 201
-        assert activate_response.json()["rut_masked"] == "***686-7"
+        created_user_id = activate_response.json()["user_id"]
+        assert activate_response.json()["rut_masked"] == "***678-5"
         assert activate_response.json()["role"] == "admin"
         assert login_response.status_code == 200
         assert login_response.json()["email"] == test_email
         assert login_response.json()["token"]
         assert admin_response.status_code == 200
-        assert admin_response.json()[0]["rut_masked"] == "***686-7"
+        assert admin_response.json()[0]["rut_masked"] == "***678-5"
     finally:
         app.dependency_overrides.clear()
+        if created_user_id:
+            with SessionLocal() as session:
+                created_user = session.get(User, created_user_id)
+                if created_user:
+                    session.delete(created_user)
+                    session.commit()
 
 
 def test_admin_endpoints_require_internal_session() -> None:
@@ -570,7 +641,7 @@ def test_space_reservation_rejects_time_conflict(tmp_path) -> None:
             {
                 "admins": [
                     {
-                        "rut": "21.452.686-7",
+                        "rut": "12.345.678-5",
                         "email": f"spaces-{uuid.uuid4()}@example.com",
                         "display_name": "Reservas Demo",
                         "role": "admin",
@@ -589,7 +660,7 @@ def test_space_reservation_rejects_time_conflict(tmp_path) -> None:
         with TestClient(app) as client:
             session_response = client.post(
                 "/api/auth/activate",
-                json={"rut": "21.452.686-7", "password": "orbit-demo-seguro"},
+                json={"rut": "12.345.678-5", "password": "orbit-demo-seguro"},
             )
             token = session_response.json()["token"]
             organization = next(
@@ -644,7 +715,7 @@ def test_password_reset_confirm_updates_password(tmp_path) -> None:
             {
                 "admins": [
                     {
-                        "rut": "21.452.686-7",
+                        "rut": "12.345.678-5",
                         "email": test_email,
                         "display_name": "Reset Demo",
                         "role": "admin",
@@ -665,11 +736,11 @@ def test_password_reset_confirm_updates_password(tmp_path) -> None:
         with TestClient(app) as client:
             client.post(
                 "/api/auth/activate",
-                json={"rut": "21.452.686-7", "password": "clave-vieja-12345"},
+                json={"rut": "12.345.678-5", "password": "clave-vieja-12345"},
             )
             request_response = client.post(
                 "/api/auth/password-reset/request",
-                json={"rut": "21.452.686-7"},
+                json={"rut": "12.345.678-5"},
             )
             assert request_response.status_code == 200
 
@@ -685,7 +756,7 @@ def test_password_reset_confirm_updates_password(tmp_path) -> None:
             confirm = client.post(
                 "/api/auth/password-reset/confirm",
                 json={
-                    "rut": "21.452.686-7",
+                        "rut": "12.345.678-5",
                     "token": token,
                     "password": "clave-nueva-12345",
                 },
@@ -693,7 +764,7 @@ def test_password_reset_confirm_updates_password(tmp_path) -> None:
             assert confirm.status_code == 200
             login = client.post(
                 "/api/auth/login",
-                json={"rut": "21452686-7", "password": "clave-nueva-12345"},
+                json={"rut": "12345678-5", "password": "clave-nueva-12345"},
             )
             assert login.status_code == 200
     finally:
@@ -720,7 +791,7 @@ def test_academic_import_preview_and_commit(tmp_path) -> None:
             {
                 "admins": [
                     {
-                        "rut": "21.452.686-7",
+                        "rut": "12.345.678-5",
                         "email": f"import-{uuid.uuid4()}@example.com",
                         "display_name": "Importadora Demo",
                         "role": "admin",
@@ -739,7 +810,7 @@ def test_academic_import_preview_and_commit(tmp_path) -> None:
         with TestClient(app) as client:
             session_response = client.post(
                 "/api/auth/activate",
-                json={"rut": "21.452.686-7", "password": "orbit-demo-seguro"},
+                json={"rut": "12.345.678-5", "password": "orbit-demo-seguro"},
             )
             token = session_response.json()["token"]
             headers = {"Authorization": f"Bearer {token}"}
@@ -792,7 +863,7 @@ def test_admin_can_update_other_user_role_and_status(tmp_path) -> None:
             {
                 "admins": [
                     {
-                        "rut": "21.452.686-7",
+                        "rut": "12.345.678-5",
                         "email": f"admin-{uuid.uuid4()}@example.com",
                         "display_name": "Admin Principal",
                         "role": "admin",
@@ -811,7 +882,7 @@ def test_admin_can_update_other_user_role_and_status(tmp_path) -> None:
         with TestClient(app) as client:
             session_response = client.post(
                 "/api/auth/activate",
-                json={"rut": "21.452.686-7", "password": "orbit-demo-seguro"},
+                json={"rut": "12.345.678-5", "password": "orbit-demo-seguro"},
             )
             admin_user_id = session_response.json()["user_id"]
             token = session_response.json()["token"]
@@ -937,7 +1008,7 @@ def test_profile_notification_preference(tmp_path) -> None:
             {
                 "admins": [
                     {
-                        "rut": "21.452.686-7",
+                        "rut": "12.345.678-5",
                         "display_name": "Pablo Prueba",
                         "email": test_email,
                         "role": "admin",
@@ -956,17 +1027,17 @@ def test_profile_notification_preference(tmp_path) -> None:
 
     try:
         with TestClient(app) as client:
-            lookup = client.post("/api/auth/lookup", json={"rut": "21452686-7"})
+            lookup = client.post("/api/auth/lookup", json={"rut": "12345678-5"})
             assert lookup.status_code == 200
             if lookup.json()["status"] == "ready_to_login":
                 session_response = client.post(
                     "/api/auth/login",
-                    json={"rut": "21452686-7", "password": "clave-segura-123"},
+                    json={"rut": "12345678-5", "password": "clave-segura-123"},
                 )
             else:
                 session_response = client.post(
                     "/api/auth/activate",
-                    json={"rut": "21452686-7", "password": "clave-segura-123"},
+                    json={"rut": "12345678-5", "password": "clave-segura-123"},
                 )
             assert session_response.status_code in {200, 201}, session_response.text
             token = session_response.json()["token"]
