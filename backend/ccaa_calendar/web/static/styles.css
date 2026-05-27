@@ -271,6 +271,8 @@ button {
 
 #auth-panel[data-step="login"] #auth-step-login,
 #auth-panel[data-step="activate"] #auth-step-activate,
+#auth-panel[data-step="request"] #auth-step-request,
+#auth-panel[data-step="request-sent"] #auth-step-request-sent,
 #auth-panel[data-step="blocked"] #auth-step-blocked,
 #auth-panel[data-step="lookup"] #auth-step-lookup {
   animation: rise-in 320ms ease both;
@@ -374,6 +376,14 @@ textarea:focus {
 
 .ghost-action {
   margin-top: 0.75rem;
+}
+
+.request-security-note {
+  margin-top: 1rem;
+  border: 1px solid rgba(129, 230, 195, 0.22);
+  border-radius: 16px;
+  padding: 0.85rem;
+  background: rgba(129, 230, 195, 0.08);
 }
 
 .google-entry-action {
@@ -655,6 +665,10 @@ nav {
   gap: 0.7rem;
 }
 
+.admin-panel-wide {
+  grid-column: 1 / -1;
+}
+
 .import-workbench {
   display: grid;
   grid-template-columns: minmax(18rem, 0.82fr) minmax(0, 1.18fr);
@@ -702,7 +716,8 @@ nav {
 }
 
 .import-date-grid,
-.admin-user-controls {
+.admin-user-controls,
+.access-request-controls {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.55rem;
@@ -764,6 +779,20 @@ nav {
 .admin-user-controls {
   align-items: center;
   min-width: min(100%, 28rem);
+}
+
+.access-request-card {
+  align-items: stretch;
+}
+
+.access-request-card .sync-chip {
+  display: inline-flex;
+  margin-top: 0.6rem;
+}
+
+.access-request-controls {
+  align-items: center;
+  min-width: min(100%, 26rem);
 }
 
 .compact-check {
@@ -1497,7 +1526,8 @@ nav {
   }
 
   .import-date-grid,
-  .admin-user-controls {
+  .admin-user-controls,
+  .access-request-controls {
     grid-template-columns: 1fr;
     width: 100%;
   }

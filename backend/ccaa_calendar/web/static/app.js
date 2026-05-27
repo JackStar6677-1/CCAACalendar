@@ -3,15 +3,20 @@ const lookupForm = document.querySelector("#lookup-form");
 const loginForm = document.querySelector("#login-form");
 const activateForm = document.querySelector("#activate-form");
 const resetConfirmForm = document.querySelector("#reset-confirm-form");
+const accessRequestForm = document.querySelector("#access-request-form");
 const authStepReset = document.querySelector("#auth-step-reset");
 const authPanel = document.querySelector("#auth-panel");
 const authStepLookup = document.querySelector("#auth-step-lookup");
 const authStepLogin = document.querySelector("#auth-step-login");
 const authStepActivate = document.querySelector("#auth-step-activate");
+const authStepRequest = document.querySelector("#auth-step-request");
+const authStepRequestSent = document.querySelector("#auth-step-request-sent");
 const authStepBlocked = document.querySelector("#auth-step-blocked");
 const loginRutSummary = document.querySelector("#login-rut-summary");
 const activateRutSummary = document.querySelector("#activate-rut-summary");
 const blockedMessage = document.querySelector("#blocked-message");
+const accessRequestResult = document.querySelector("#access-request-result");
+const requestAccessButtons = document.querySelectorAll("[data-request-access]");
 const passwordResetButton = document.querySelector("#password-reset-button");
 const bootstrapOfficialEmail = document.querySelector("#bootstrap-official-email");
 const bootstrapOfficialDetail = document.querySelector("#bootstrap-official-detail");
@@ -51,6 +56,7 @@ const sessionViewButtons = document.querySelectorAll("[data-requires-session]");
 const appSections = document.querySelectorAll("[data-view]");
 const refreshAdminButton = document.querySelector("#refresh-admin-button");
 const adminUserList = document.querySelector("#admin-user-list");
+const adminAccessRequestList = document.querySelector("#admin-access-request-list");
 const adminAuditList = document.querySelector("#admin-audit-list");
 const refreshSpacesButton = document.querySelector("#refresh-spaces-button");
 const spaceForm = document.querySelector("#space-form");
@@ -968,6 +974,98 @@ function renderAdminUsers(users) {
   });
 }
 
+function renderAccessRequests(requests) {
+  adminAccessRequestList.replaceChildren();
+  if (!requests.length) {
+    const empty = document.createElement("div");
+    empty.className = "loading-row";
+    empty.textContent = "No hay solicitudes de acceso registradas.";
+    adminAccessRequestList.append(empty);
+    return;
+  }
+
+  requests.forEach((request) => {
+    const row = document.createElement("article");
+    row.className = "admin-row access-request-card";
+    row.dataset.tone = request.status === "approved" ? "success" : request.status === "rejected" ? "warning" : "";
+
+    const body = document.createElement("div");
+    const name = document.createElement("strong");
+    name.textContent = request.display_name;
+    const meta = document.createElement("span");
+    meta.textContent = `${request.rut_masked} · ${request.email} · ${formatDateTime(request.created_at)}`;
+    const detail = document.createElement("span");
+    detail.textContent = request.note || "Sin comentario adicional.";
+    const status = document.createElement("span");
+    status.className = "sync-chip";
+    status.textContent = `${request.status} · aviso ${request.notification_status}`;
+    body.append(name, meta, detail, status);
+
+    const controls = document.createElement("div");
+    controls.className = "access-request-controls";
+    if (request.status === "pending") {
+      const roleSelect = document.createElement("select");
+      roleSelect.dataset.field = "request-role";
+      ["viewer", "editor", "admin"].forEach((role) => {
+        const option = document.createElement("option");
+        option.value = role;
+        option.textContent = role;
+        option.selected = request.desired_role === role;
+        roleSelect.append(option);
+      });
+      const approve = document.createElement("button");
+      approve.className = "primary-action compact";
+      approve.type = "button";
+      approve.textContent = "Aprobar";
+      approve.addEventListener("click", () => decideAccessRequest(request.id, row, "approved"));
+      const reject = document.createElement("button");
+      reject.className = "ghost-action compact";
+      reject.type = "button";
+      reject.textContent = "Rechazar";
+      reject.addEventListener("click", () => decideAccessRequest(request.id, row, "rejected"));
+      controls.append(roleSelect, approve, reject);
+    }
+    if (request.notification_status !== "sent") {
+      const retry = document.createElement("button");
+      retry.className = "ghost-action compact";
+      retry.type = "button";
+      retry.textContent = "Reintentar aviso";
+      retry.addEventListener("click", () => retryAccessRequestNotice(request.id, retry));
+      controls.append(retry);
+    }
+    row.append(body, controls);
+    adminAccessRequestList.append(row);
+  });
+}
+
+async function decideAccessRequest(requestId, row, decision) {
+  const role = row.querySelector('[data-field="request-role"]')?.value;
+  const response = await trackedFetch(`/api/admin/access-requests/${requestId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({ decision, role: decision === "approved" ? role : null }),
+  });
+  if (!response.ok) {
+    row.dataset.tone = "warning";
+    return;
+  }
+  await hydrateAdmin();
+}
+
+async function retryAccessRequestNotice(requestId, button) {
+  button.disabled = true;
+  const response = await trackedFetch(`/api/admin/access-requests/${requestId}/notify`, {
+    method: "POST",
+    headers: authHeaders(),
+  });
+  button.disabled = false;
+  if (!response.ok) {
+    button.textContent = "Aviso fallido";
+    return;
+  }
+  await hydrateAdmin();
+}
+
 async function updateAdminUser(userId, row) {
   const role = row.querySelector('[data-field="role"]').value;
   const isActive = row.querySelector('[data-field="is_active"]').checked;
@@ -1028,26 +1126,32 @@ function renderAudit(auditEntries) {
 }
 
 async function hydrateAdmin() {
-  if (!adminUserList || !adminAuditList) return;
+  if (!adminUserList || !adminAccessRequestList || !adminAuditList) return;
   if (!authSession?.token) {
+    adminAccessRequestList.innerHTML = `<div class="loading-row warning">Inicia sesion para revisar solicitudes.</div>`;
     adminUserList.innerHTML = `<div class="loading-row warning">Entra con RUT y clave para ver administradoras.</div>`;
     adminAuditList.innerHTML = `<div class="loading-row warning">La auditoria no se expone sin sesion interna.</div>`;
     return;
   }
 
+  adminAccessRequestList.innerHTML = `<div class="loading-row">Cargando solicitudes...</div>`;
   adminUserList.innerHTML = `<div class="loading-row">Cargando administradoras...</div>`;
   adminAuditList.innerHTML = `<div class="loading-row">Cargando auditoria...</div>`;
 
   try {
-    const [usersResponse, auditResponse] = await Promise.all([
+    const [requestsResponse, usersResponse, auditResponse] = await Promise.all([
+      trackedFetch("/api/admin/access-requests", { headers: authHeaders() }),
       trackedFetch("/api/admin/users", { headers: authHeaders() }),
       trackedFetch("/api/admin/audit?limit=30", { headers: authHeaders() }),
     ]);
+    const requests = requestsResponse.ok ? await requestsResponse.json() : [];
     const users = usersResponse.ok ? await usersResponse.json() : [];
     const audit = auditResponse.ok ? await auditResponse.json() : [];
+    renderAccessRequests(requests);
     renderAdminUsers(users);
     renderAudit(audit);
   } catch (error) {
+    adminAccessRequestList.innerHTML = `<div class="loading-row warning">No pudimos cargar solicitudes.</div>`;
     adminUserList.innerHTML = `<div class="loading-row warning">No pudimos cargar administradoras.</div>`;
     adminAuditList.innerHTML = `<div class="loading-row warning">No pudimos cargar auditoria.</div>`;
     reportClientIssue("client.admin_load", error?.message || error, {}, error?.stack || "");
@@ -1535,6 +1639,8 @@ function showAuthStep(step) {
   authStepLogin.hidden = step !== "login";
   authStepActivate.hidden = step !== "activate";
   if (authStepReset) authStepReset.hidden = step !== "reset";
+  if (authStepRequest) authStepRequest.hidden = step !== "request";
+  if (authStepRequestSent) authStepRequestSent.hidden = step !== "request-sent";
   authStepBlocked.hidden = step !== "blocked";
   authPanel.dataset.step = step;
 }
@@ -1545,6 +1651,7 @@ function resetAuthFlow() {
   lookupForm?.reset();
   loginForm?.reset();
   activateForm?.reset();
+  accessRequestForm?.reset();
 }
 
 function rutSummaryText(rutMasked) {
@@ -1652,12 +1759,62 @@ lookupForm?.addEventListener("submit", async (event) => {
       return;
     }
 
+    if (lookup.status === "request_pending") {
+      accessRequestResult.textContent =
+        "Tu solicitud ya esta pendiente de revision por la directiva. Te avisaran cuando corresponda activar tu cuenta.";
+      showAuthStep("request-sent");
+      setLoginStatus("Solicitud pendiente de revision.", "neutral");
+      return;
+    }
+
     blockedMessage.textContent =
-      "Tu RUT no figura habilitado en el centro. Contacta a la directiva para que te agreguen al roster.";
+      "Tu RUT no figura habilitado en el centro. Puedes enviar una solicitud para revision.";
     showAuthStep("blocked");
     setLoginStatus("RUT no habilitado.", "warning");
   } catch {
     setLoginStatus("No se pudo contactar la API. Reintenta en unos segundos.", "warning");
+  }
+});
+
+requestAccessButtons.forEach((button) => {
+  button.addEventListener("click", () => {
+    const knownRut = String(authLookupContext?.rut || lookupForm?.elements.rut?.value || "").trim();
+    if (knownRut && accessRequestForm?.elements.rut) {
+      accessRequestForm.elements.rut.value = knownRut;
+    }
+    showAuthStep("request");
+    setLoginStatus("La directiva revisara tus datos antes de habilitar acceso.", "neutral");
+  });
+});
+
+accessRequestForm?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const formData = new FormData(accessRequestForm);
+  setLoginStatus("Registrando solicitud de acceso...", "neutral");
+  try {
+    const response = await trackedFetch("/api/auth/access-requests", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        first_name: String(formData.get("first_name") || "").trim(),
+        last_name: String(formData.get("last_name") || "").trim(),
+        rut: String(formData.get("rut") || "").trim(),
+        email: String(formData.get("email") || "").trim(),
+        desired_role: String(formData.get("desired_role") || "editor"),
+        note: String(formData.get("note") || "").trim(),
+        consent_personal_data: Boolean(formData.get("consent_personal_data")),
+      }),
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      setLoginStatus(payload.detail || "No se pudo registrar la solicitud.", "warning");
+      return;
+    }
+    accessRequestResult.textContent = payload.message;
+    showAuthStep("request-sent");
+    setLoginStatus("Solicitud enviada para revision.", "success");
+  } catch {
+    setLoginStatus("No se pudo contactar la API para enviar la solicitud.", "warning");
   }
 });
 

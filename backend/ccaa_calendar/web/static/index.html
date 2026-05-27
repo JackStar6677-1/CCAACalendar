@@ -12,7 +12,7 @@
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="icon" href="/assets/orbit-icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/assets/orbit-icon.svg" />
-    <link rel="stylesheet" href="/assets/styles.css?v=29" />
+    <link rel="stylesheet" href="/assets/styles.css?v=30" />
   </head>
   <body class="theme-workspace">
     <main class="shell" data-screen="login">
@@ -64,6 +64,7 @@
                 <input name="rut" placeholder="12.345.678-9" autocomplete="username" required />
               </label>
               <button class="primary-action" type="submit">Verificar acceso</button>
+              <button class="ghost-action" type="button" data-request-access>Solicitar acceso al centro</button>
             </form>
           </div>
           <div id="auth-step-login" hidden>
@@ -112,10 +113,56 @@
               <button class="ghost-action" type="button" data-auth-back>Volver</button>
             </form>
           </div>
+          <div id="auth-step-request" hidden>
+            <span class="step-label">Solicitud de acceso</span>
+            <h2>Pide acceso a la directiva</h2>
+            <p>
+              Completa tus datos personales. Una administradora revisará la solicitud antes de
+              que puedas crear tu clave.
+            </p>
+            <form id="access-request-form" class="stack-form">
+              <div class="split-fields">
+                <label>Nombre<input name="first_name" autocomplete="given-name" required minlength="2" /></label>
+                <label>Apellido<input name="last_name" autocomplete="family-name" required minlength="2" /></label>
+              </div>
+              <label>RUT<input name="rut" placeholder="12.345.678-9" autocomplete="username" required /></label>
+              <label>Correo personal<input name="email" type="email" autocomplete="email" required /></label>
+              <label>
+                Tipo de acceso solicitado
+                <select name="desired_role">
+                  <option value="editor">Editar actividades y reservas</option>
+                  <option value="viewer">Solo consultar información interna</option>
+                </select>
+              </label>
+              <label>
+                Comentario para la directiva (opcional)
+                <textarea name="note" maxlength="500" placeholder="Cargo, responsabilidad o motivo de acceso"></textarea>
+              </label>
+              <label class="check-option">
+                <input name="consent_personal_data" type="checkbox" required />
+                Autorizo usar mis datos para verificar mi acceso y auditar mis acciones.
+              </label>
+              <button class="primary-action" type="submit">Enviar solicitud</button>
+              <button class="ghost-action" type="button" data-auth-back>Volver</button>
+            </form>
+          </div>
+          <div id="auth-step-request-sent" hidden>
+            <span class="step-label">Solicitud registrada</span>
+            <h2>Revisión pendiente</h2>
+            <p id="access-request-result">
+              La directiva recibirá el aviso y decidirá si habilita tu acceso.
+            </p>
+            <p class="request-security-note">
+              No crees una contraseña todavía. Cuando aprueben tu solicitud, vuelve a verificar
+              tu RUT para activar tu cuenta personal.
+            </p>
+            <button class="ghost-action" type="button" data-auth-back>Volver al inicio</button>
+          </div>
           <div id="auth-step-blocked" hidden>
             <span class="eyebrow">Sin acceso</span>
             <h2>No pudimos habilitarte</h2>
             <p id="blocked-message">Tu RUT no figura en la lista del centro. Contacta a la directiva.</p>
+            <button class="primary-action" type="button" data-request-access>Solicitar acceso al centro</button>
             <button class="ghost-action" type="button" data-auth-back>Volver a intentar</button>
           </div>
           <button class="ghost-action public-calendar-action" type="button" id="demo-button">
@@ -135,7 +182,7 @@
             </div>
           </div>
           <p class="auth-footnote">
-            ¿No estás habilitada? Puedes consultar fechas; la directiva debe agregarte para editar.
+            ¿No estás habilitada? Solicita acceso o consulta fechas en modo lectura.
           </p>
         </section>
       </section>
@@ -248,6 +295,15 @@
               <button class="ghost-action compact" id="refresh-admin-button" type="button">Actualizar</button>
             </div>
             <div class="admin-grid">
+              <article class="admin-panel admin-panel-wide">
+                <span class="eyebrow">Solicitudes pendientes</span>
+                <h4>Aprobar acceso al centro</h4>
+                <p>
+                  Revisa identidad y rol antes de aprobar. La persona creará su propia clave
+                  después de ser habilitada.
+                </p>
+                <div class="admin-list" id="admin-access-request-list"></div>
+              </article>
               <article class="admin-panel">
                 <span class="eyebrow">Administradoras</span>
                 <h4>Accesos por RUT</h4>
@@ -462,6 +518,6 @@
         </form>
       </dialog>
     </main>
-    <script src="/assets/app.js?v=29" type="module"></script>
+    <script src="/assets/app.js?v=30" type="module"></script>
   </body>
 </html>

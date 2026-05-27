@@ -203,7 +203,10 @@ flowchart TB
 ```mermaid
 flowchart TB
     Start([Ingresa RUT]) --> Lookup{¿En roster?}
-    Lookup -->|No| Block([Acceso bloqueado])
+    Lookup -->|No| Request[Solicitar acceso]
+    Request --> Review{Revisión directiva}
+    Review -->|Pendiente o rechazo| Block([Sin edición])
+    Review -->|Aprobado| Activate
     Lookup -->|Sí, primera vez| Activate[Crear clave y correo]
     Lookup -->|Sí, activa| Login[Iniciar sesión]
     Activate --> App([Panel CCAACalendar])
@@ -395,6 +398,7 @@ flowchart LR
         A1[lookup]
         A2[activate / login]
         A3[me / notifications]
+        A4[access-requests]
     end
     subgraph core ["Calendario"]
         C1[events]
@@ -407,6 +411,7 @@ flowchart LR
     end
     subgraph admin ["Admin"]
         D1[users / audit]
+        D2[aprobar solicitudes]
     end
 
     auth --> core

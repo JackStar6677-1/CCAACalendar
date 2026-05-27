@@ -235,6 +235,39 @@ class AdminUserUpdate(BaseModel):
     email_notifications_enabled: bool | None = None
 
 
+class AccessRequestCreate(BaseModel):
+    rut: str = Field(min_length=7, max_length=20)
+    first_name: str = Field(min_length=2, max_length=90)
+    last_name: str = Field(min_length=2, max_length=90)
+    email: str = Field(min_length=5, max_length=254)
+    desired_role: str = Field(default="editor", pattern=r"^(viewer|editor)$")
+    note: str = Field(default="", max_length=500)
+    consent_personal_data: bool
+
+
+class AccessRequestReceipt(BaseModel):
+    status: str
+    message: str
+
+
+class AccessRequestRead(BaseModel):
+    id: str
+    display_name: str
+    email: str
+    rut_masked: str
+    desired_role: str
+    note: str
+    status: str
+    notification_status: str
+    created_at: datetime
+    reviewed_at: datetime | None
+
+
+class AccessRequestDecision(BaseModel):
+    decision: str = Field(pattern=r"^(approved|rejected)$")
+    role: str | None = Field(default=None, pattern=r"^(viewer|editor|admin|owner)$")
+
+
 class EventNotificationSummary(BaseModel):
     subscribers: int
     queued_created: int

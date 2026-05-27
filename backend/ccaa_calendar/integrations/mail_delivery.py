@@ -166,4 +166,6 @@ def send_email(
             last_error = exc
             logger.warning("Mail provider %s failed: %s", provider, exc)
 
+    if isinstance(last_error, MailNotConfiguredError):
+        raise last_error
     raise MailDeliveryError(str(last_error or "No se pudo enviar el correo."))

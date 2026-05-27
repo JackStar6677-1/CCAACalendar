@@ -121,7 +121,13 @@ def _protect_sensitive_local_data() -> None:
         protect_text,
         reveal_text,
     )
-    from ccaa_calendar.models import Center, EventEmailQueue, GoogleCalendarConnection, User
+    from ccaa_calendar.models import (
+        AccessRequest,
+        Center,
+        EventEmailQueue,
+        GoogleCalendarConnection,
+        User,
+    )
 
     if not data_protection_configured(settings):
         if not settings.is_local:
@@ -159,5 +165,15 @@ def _protect_sensitive_local_data() -> None:
                 reveal_text(item.recipient_email, settings), settings
             ) or ""
             session.add(item)
+
+        for request in session.scalars(select(AccessRequest)):
+            email = reveal_text(request.email, settings) or ""
+            request.email_lookup_hash = lookup_hash(email, settings)
+            request.email = protect_text(email, settings) or ""
+            request.display_name = protect_text(
+                reveal_text(request.display_name, settings), settings
+            ) or ""
+            request.note = protect_text(reveal_text(request.note, settings), settings) or ""
+            session.add(request)
         session.commit()
 

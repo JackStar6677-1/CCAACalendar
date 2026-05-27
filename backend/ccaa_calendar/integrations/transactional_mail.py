@@ -9,7 +9,7 @@ from ccaa_calendar.integrations.email_templates import (
     render_email_html,
 )
 from ccaa_calendar.integrations.mail_delivery import send_email
-from ccaa_calendar.models import Event, User
+from ccaa_calendar.models import AccessRequest, Event, User
 from ccaa_calendar.settings import Settings
 
 
@@ -180,6 +180,67 @@ def password_reset_email(
         subject=subject,
         body_text=body_text,
         body_html=body_html,
+    )
+
+
+def access_request_admin_email(
+    settings: Settings,
+    request: AccessRequest,
+    admin: User,
+) -> str:
+    """Avisa a una administradora; aprobar el acceso sigue requiriendo el panel."""
+    admin_name = reveal_text(admin.display_name, settings) or "administradora"
+    email = reveal_text(admin.email, settings) or ""
+    requester_name = reveal_text(request.display_name, settings) or "Nueva integrante"
+    requester_email = reveal_text(request.email, settings) or ""
+    note = reveal_text(request.note, settings) or "(sin comentario adicional)"
+    app_url = settings.app_public_url.rstrip("/")
+    subject = "Nueva solicitud de acceso en CCAACalendar"
+    body_text = "\n".join(
+        [
+            f"Hola {admin_name},",
+            "",
+            "Hay una solicitud pendiente de revision en CCAACalendar.",
+            f"Nombre: {requester_name}",
+            f"RUT protegido: {request.rut_masked}",
+            f"Correo: {requester_email}",
+            f"Rol solicitado: {request.desired_role}",
+            f"Mensaje: {note}",
+            "",
+            f"Revisar desde el panel: {app_url}/app",
+            "",
+            "Este correo solo avisa. El acceso no se habilita sin tu aprobacion.",
+        ]
+    )
+    body_html = render_email_html(
+        settings,
+        preheader="Solicitud de acceso pendiente de revision",
+        headline="Nueva solicitud de acceso",
+        greeting=f"Hola {admin_name},",
+        paragraphs=[
+            "Una persona solicito acceso al calendario del centro. Revisa sus datos "
+            "en el panel antes de aprobar o rechazar la solicitud.",
+            "Este aviso no concede permisos automaticamente.",
+        ],
+        highlight=(
+            requester_name,
+            [
+                ("RUT protegido", request.rut_masked),
+                ("Correo", requester_email),
+                ("Rol solicitado", request.desired_role),
+            ],
+            category_accent("centro"),
+        ),
+        cta=(f"{app_url}/app", "Revisar solicitud"),
+        footer_note=note,
+    )
+    return send_email(
+        settings,
+        to=email,
+        subject=subject,
+        body_text=body_text,
+        body_html=body_html,
+        prefer="gmail",
     )
 
 

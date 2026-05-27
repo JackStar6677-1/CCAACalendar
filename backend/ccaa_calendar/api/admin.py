@@ -4,17 +4,104 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from ccaa_calendar.api.auth import CurrentAdminUserDep
+from ccaa_calendar.api.auth import CurrentAdminUserDep, _notify_access_request_admins
 from ccaa_calendar.database import get_session
 from ccaa_calendar.domain.pii import reveal_text
-from ccaa_calendar.models import AuditLog, User
-from ccaa_calendar.schemas import AdminUserRead, AdminUserUpdate, AuditLogRead
+from ccaa_calendar.models import AccessRequest, AuditLog, User
+from ccaa_calendar.schemas import (
+    AccessRequestDecision,
+    AccessRequestRead,
+    AdminUserRead,
+    AdminUserUpdate,
+    AuditLogRead,
+)
+from ccaa_calendar.security import utcnow
 from ccaa_calendar.settings import Settings, get_settings
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 SessionDep = Annotated[Session, Depends(get_session)]
 SettingsDep = Annotated[Settings, Depends(get_settings)]
 ADMIN_ROLES = {"admin", "owner"}
+
+
+@router.get("/access-requests", response_model=list[AccessRequestRead])
+def list_access_requests(
+    current_user: CurrentAdminUserDep, session: SessionDep, settings: SettingsDep
+) -> list[AccessRequestRead]:
+    _require_admin(current_user)
+    requests = list(
+        session.scalars(
+            select(AccessRequest)
+            .where(AccessRequest.organization_id == current_user.organization_id)
+            .order_by(AccessRequest.created_at.desc())
+        )
+    )
+    return [_access_request_payload(request, settings) for request in requests]
+
+
+@router.patch("/access-requests/{request_id}", response_model=AccessRequestRead)
+def decide_access_request(
+    request_id: str,
+    payload: AccessRequestDecision,
+    current_user: CurrentAdminUserDep,
+    session: SessionDep,
+    settings: SettingsDep,
+) -> AccessRequestRead:
+    """Aprueba la activacion posterior o rechaza; nunca crea claves por terceros."""
+    _require_admin(current_user)
+    request = session.get(AccessRequest, request_id)
+    if not request or request.organization_id != current_user.organization_id:
+        raise HTTPException(status_code=404, detail="Solicitud no encontrada.")
+    if request.status != "pending":
+        raise HTTPException(status_code=409, detail="La solicitud ya fue revisada.")
+
+    request.status = payload.decision
+    if payload.decision == "approved" and payload.role:
+        request.desired_role = payload.role
+    request.reviewed_by_user_id = current_user.id
+    request.reviewed_at = utcnow()
+    session.add(request)
+    session.add(
+        AuditLog(
+            organization_id=current_user.organization_id,
+            actor_user_id=current_user.id,
+            action=f"access_request.{payload.decision}",
+            entity_type="access_request",
+            entity_id=request.id,
+            payload={"rut_masked": request.rut_masked, "role": request.desired_role},
+        )
+    )
+    session.commit()
+    session.refresh(request)
+    return _access_request_payload(request, settings)
+
+
+@router.post("/access-requests/{request_id}/notify", response_model=AccessRequestRead)
+def resend_access_request_notice(
+    request_id: str,
+    current_user: CurrentAdminUserDep,
+    session: SessionDep,
+    settings: SettingsDep,
+) -> AccessRequestRead:
+    _require_admin(current_user)
+    request = session.get(AccessRequest, request_id)
+    if not request or request.organization_id != current_user.organization_id:
+        raise HTTPException(status_code=404, detail="Solicitud no encontrada.")
+    request.notification_status = _notify_access_request_admins(session, settings, request)
+    session.add(request)
+    session.add(
+        AuditLog(
+            organization_id=current_user.organization_id,
+            actor_user_id=current_user.id,
+            action="access_request.notification_retry",
+            entity_type="access_request",
+            entity_id=request.id,
+            payload={"notification_status": request.notification_status},
+        )
+    )
+    session.commit()
+    session.refresh(request)
+    return _access_request_payload(request, settings)
 
 
 @router.get("/users", response_model=list[AdminUserRead])
@@ -121,4 +208,19 @@ def _admin_user_payload(user: User, settings: Settings) -> AdminUserRead:
         email_notifications_enabled=user.email_notifications_enabled,
         last_login_at=user.last_login_at,
         created_at=user.created_at,
+    )
+
+
+def _access_request_payload(request: AccessRequest, settings: Settings) -> AccessRequestRead:
+    return AccessRequestRead(
+        id=request.id,
+        display_name=reveal_text(request.display_name, settings) or "",
+        email=reveal_text(request.email, settings) or "",
+        rut_masked=request.rut_masked,
+        desired_role=request.desired_role,
+        note=reveal_text(request.note, settings) or "",
+        status=request.status,
+        notification_status=request.notification_status,
+        created_at=request.created_at,
+        reviewed_at=request.reviewed_at,
     )

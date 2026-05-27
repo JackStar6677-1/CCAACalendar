@@ -17,7 +17,7 @@ os.environ["GOOGLE_TOKEN_PATH"] = str(TEST_PRIVATE_DIR / "google-token.json")
 os.environ["GOOGLE_OAUTH_STATE_PATH"] = str(TEST_PRIVATE_DIR / "google-state.json")
 os.environ["ADMIN_ROSTER_PATH"] = str(TEST_PRIVATE_DIR / "admin-roster.json")
 
-from ccaa_calendar.api.auth import ACTIVE_SESSIONS
+from ccaa_calendar.api.auth import ACCESS_REQUEST_ATTEMPTS, ACTIVE_SESSIONS
 from ccaa_calendar.database import SessionLocal, get_session
 from ccaa_calendar.domain.academic_import import parse_academic_calendar
 from ccaa_calendar.domain.admin_roster import load_admin_roster
@@ -29,7 +29,7 @@ from ccaa_calendar.integrations.google_calendar import (
 )
 from ccaa_calendar.integrations.google_oauth import is_google_oauth_configured, make_flow
 from ccaa_calendar.main import app
-from ccaa_calendar.models import Event, EventEmailQueue, Organization, User
+from ccaa_calendar.models import AccessRequest, Event, EventEmailQueue, Organization, User
 from ccaa_calendar.security import hash_token, new_public_token
 from ccaa_calendar.settings import Settings, get_settings
 from cryptography.fernet import Fernet
@@ -625,6 +625,166 @@ def test_admin_can_activate_and_login_with_rut(tmp_path) -> None:
                 if created_user:
                     session.delete(created_user)
                     session.commit()
+
+
+def test_access_request_stays_pending_without_granting_access(tmp_path) -> None:
+    created_request_id: str | None = None
+    settings = Settings(
+        admin_roster_path=str(tmp_path / "empty-roster.json"),
+        admin_identity_pepper=f"request-pepper-{uuid.uuid4()}",
+        pii_lookup_pepper=f"request-lookup-{uuid.uuid4()}",
+        pii_encryption_keys=Fernet.generate_key().decode("ascii"),
+    )
+    app.dependency_overrides[get_settings] = lambda: settings
+    try:
+        with TestClient(app) as client:
+            created = client.post(
+                "/api/auth/access-requests",
+                json={
+                    "rut": "11.111.111-1",
+                    "first_name": "Integrante",
+                    "last_name": "Solicitante",
+                    "email": "solicitud@example.com",
+                    "desired_role": "editor",
+                    "note": "Quiero colaborar con actividades.",
+                    "consent_personal_data": True,
+                },
+            )
+            lookup = client.post("/api/auth/lookup", json={"rut": "11111111-1"})
+
+        assert created.status_code == 202
+        assert lookup.json()["status"] == "request_pending"
+        with SessionLocal() as session:
+            request = session.scalar(
+                select(AccessRequest).where(AccessRequest.rut_masked == "***111-1")
+            )
+            assert request
+            created_request_id = request.id
+            assert request.email.startswith("fernet:v1:")
+            assert request.display_name.startswith("fernet:v1:")
+    finally:
+        app.dependency_overrides.clear()
+        if created_request_id:
+            with SessionLocal() as session:
+                request = session.get(AccessRequest, created_request_id)
+                if request:
+                    session.delete(request)
+                    session.commit()
+
+
+def test_admin_approval_allows_requester_to_activate_after_review(tmp_path) -> None:
+    created_ids: list[tuple[type, str]] = []
+    roster = tmp_path / "admin-roster.json"
+    roster.write_text(
+        json.dumps(
+            {
+                "admins": [
+                    {
+                        "rut": "12.345.678-5",
+                        "email": f"approver-{uuid.uuid4()}@example.com",
+                        "display_name": "Admin Aprobadora",
+                        "role": "admin",
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    settings = Settings(
+        admin_roster_path=str(roster),
+        admin_identity_pepper=f"approval-pepper-{uuid.uuid4()}",
+        pii_lookup_pepper=f"approval-lookup-{uuid.uuid4()}",
+        pii_encryption_keys=Fernet.generate_key().decode("ascii"),
+    )
+    app.dependency_overrides[get_settings] = lambda: settings
+    try:
+        with TestClient(app) as client:
+            admin = client.post(
+                "/api/auth/activate",
+                json={"rut": "12.345.678-5", "password": "clave-admin-segura"},
+            )
+            created_ids.append((User, admin.json()["user_id"]))
+            headers = {"Authorization": f"Bearer {admin.json()['token']}"}
+            created = client.post(
+                "/api/auth/access-requests",
+                json={
+                    "rut": "11.111.111-1",
+                    "first_name": "Editora",
+                    "last_name": "Nueva",
+                    "email": f"editora-{uuid.uuid4()}@example.com",
+                    "desired_role": "editor",
+                    "note": "",
+                    "consent_personal_data": True,
+                },
+            )
+            requests = client.get("/api/admin/access-requests", headers=headers)
+            pending = next(item for item in requests.json() if item["rut_masked"] == "***111-1")
+            created_ids.append((AccessRequest, pending["id"]))
+            approval = client.patch(
+                f"/api/admin/access-requests/{pending['id']}",
+                headers=headers,
+                json={"decision": "approved", "role": "editor"},
+            )
+            lookup = client.post("/api/auth/lookup", json={"rut": "11.111.111-1"})
+            activation = client.post(
+                "/api/auth/activate",
+                json={"rut": "11.111.111-1", "password": "clave-editora-segura"},
+            )
+            created_ids.append((User, activation.json()["user_id"]))
+
+        assert created.status_code == 202
+        assert pending["notification_status"] == "awaiting_gmail"
+        assert approval.status_code == 200
+        assert lookup.json()["status"] == "needs_activation"
+        assert activation.status_code == 201
+        assert activation.json()["role"] == "editor"
+    finally:
+        app.dependency_overrides.clear()
+        with SessionLocal() as session:
+            for model, entity_id in reversed(created_ids):
+                entity = session.get(model, entity_id)
+                if entity:
+                    session.delete(entity)
+            session.commit()
+
+
+def test_access_request_rate_limit_rejects_public_email_spam(tmp_path) -> None:
+    ACCESS_REQUEST_ATTEMPTS.clear()
+    settings = Settings(
+        admin_roster_path=str(tmp_path / "empty-roster.json"),
+        admin_identity_pepper=f"rate-limit-pepper-{uuid.uuid4()}",
+    )
+    app.dependency_overrides[get_settings] = lambda: settings
+    payload = {
+        "rut": "11.111.111-1",
+        "first_name": "Solicitud",
+        "last_name": "Repetida",
+        "email": "solicitud@example.com",
+        "desired_role": "editor",
+        "note": "",
+        "consent_personal_data": True,
+    }
+    try:
+        with TestClient(app) as client:
+            accepted = [
+                client.post(
+                    "/api/auth/access-requests",
+                    headers={"CF-Connecting-IP": "203.0.113.18"},
+                    json=payload,
+                )
+                for _ in range(5)
+            ]
+            blocked = client.post(
+                "/api/auth/access-requests",
+                headers={"CF-Connecting-IP": "203.0.113.18"},
+                json=payload,
+            )
+
+        assert all(response.status_code == 202 for response in accepted)
+        assert blocked.status_code == 429
+    finally:
+        ACCESS_REQUEST_ATTEMPTS.clear()
+        app.dependency_overrides.clear()
 
 
 def test_admin_endpoints_require_internal_session() -> None:

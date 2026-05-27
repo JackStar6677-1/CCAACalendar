@@ -89,6 +89,33 @@ class User(TimestampMixin, Base):
     )
 
 
+class AccessRequest(TimestampMixin, Base):
+    """Solicitud publica pendiente de revision por una administradora."""
+
+    __tablename__ = "access_requests"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    organization_id: Mapped[str] = mapped_column(ForeignKey("organizations.id"), nullable=False)
+    center_id: Mapped[str | None] = mapped_column(ForeignKey("centers.id"))
+    rut_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    rut_masked: Mapped[str] = mapped_column(String(20), nullable=False)
+    email: Mapped[str] = mapped_column(Text, nullable=False)
+    email_lookup_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    display_name: Mapped[str] = mapped_column(Text, nullable=False)
+    desired_role: Mapped[str] = mapped_column(String(40), default="editor", nullable=False)
+    note: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    status: Mapped[str] = mapped_column(String(40), default="pending", nullable=False)
+    notification_status: Mapped[str] = mapped_column(String(40), default="pending", nullable=False)
+    admin_notified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    reviewed_by_user_id: Mapped[str | None] = mapped_column(ForeignKey("users.id"))
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    __table_args__ = (
+        Index("ix_access_requests_org_status_created", "organization_id", "status", "created_at"),
+        Index("ix_access_requests_org_rut_status", "organization_id", "rut_hash", "status"),
+    )
+
+
 class Space(TimestampMixin, Base):
     __tablename__ = "spaces"
 
