@@ -2,241 +2,229 @@
 
 ![CCAACalendar orbital banner](docs/brand/ccaa-calendar-readme-banner.svg)
 
-**Calendario vivo para centros de estudiantes, coordinación universitaria y reservas de espacios.**
+**Calendario institucional para centros de estudiantes, actividades, avisos y coordinación de espacios.**
 
-> Carpeta local: `CCAACalendar` · Producto público: **CCAACalendar** · Piloto: **CE Psicología · UDLA Maipú**
+> Piloto activo: **Centro de Estudiantes de Psicología · UDLA Maipú**
 
-## En una mirada
+## Qué Es
 
-```mermaid
-graph TD
-    U["Integrantes del centro<br/>RUT y clave propia"] -->|"crean y consultan"| P["CCAACalendar PWA"]
-    P -->|"sincroniza eventos"| C["Google Calendar oficial<br/>cuenta unica del centro"]
-    P -->|"envia avisos"| E["Correos personales<br/>notificaciones opt-in"]
-```
+CCAACalendar es una web/PWA creada para manejar un calendario oficial sin compartir la
+contraseña de la cuenta Google del centro. Cada integrante trabaja con su propia identidad
+interna y cada acción relevante puede auditarse.
 
-## Estado del piloto · mayo 2026
-
-```mermaid
-graph LR
-    A["Operativo<br/>PWA y auth por RUT<br/>Google Calendar y Gmail<br/>solicitudes de acceso<br/>importador editable"] --> B["En mejora<br/>reservas visuales<br/>categorias y filtros<br/>reconciliacion Google"]
-    B --> C["Siguiente etapa<br/>PostgreSQL y VPS<br/>multi-centro<br/>permisos reforzados"]
-```
-
-| Componente | Estado actual |
+| Necesidad | Solución en CCAACalendar |
 | --- | --- |
-| Sitio público | Activo en [ccaa.drakescraft.cl](https://ccaa.drakescraft.cl) mediante Cloudflare Tunnel |
-| Acceso interno | RUT + clave propia, con roles y auditoría |
-| Solicitudes de acceso | Formulario público, revisión admin, aviso Gmail y control anti-spam |
-| Cuenta Google oficial | Calendar y Gmail autorizados para el piloto |
-| Datos personales | RUT hasheado; nombre y correo cifrados; secretos fuera de Git |
+| Calendario oficial del centro | Una sola cuenta Google autorizada mediante OAuth |
+| Identificar quién realiza cambios | Acceso individual por RUT y clave propia |
+| Incorporar nuevas integrantes | Solicitud pública y aprobación administrativa |
+| Avisar actividades importantes | Gmail API desde la cuenta oficial y alertas web |
+| Cargar fechas académicas | Importador con previsualización y edición previa |
+| Evitar choques de espacios | Reservas con validación de conflicto |
 
-**Despliegue demo:** túnel Cloudflare hacia una instancia local. Es una exposición temporal para pruebas, no el hosting definitivo.
+## Estado Del Piloto
 
-## Avance vs requerimientos del piloto
+Estado verificado durante el desarrollo local y la demo pública de mayo de 2026:
 
-```mermaid
-graph TD
-    D["Hecho en piloto<br/>PWA, RUT, roles y Google del centro<br/>Gmail, importador y solicitudes admin"] --> M["En desarrollo<br/>reservas mas visuales<br/>filtros y sync entrante robusto"]
-    M --> F["Futuro<br/>multi-centro<br/>estadisticas y produccion VPS"]
-```
+| Área | Estado | Detalle |
+| --- | --- | --- |
+| Web/PWA responsive | Operativo | Portada, panel, calendario, formularios y navegación móvil |
+| Autenticación interna | Operativo | RUT + clave propia, roles y auditoría |
+| Solicitudes de acceso | Operativo | Formulario público, bandeja admin, aprobación y anti-spam básico |
+| Google Calendar | Operativo en demo | Cuenta oficial conectada para sincronización de eventos |
+| Gmail API | Operativo en demo | Scope `gmail.send` autorizado para avisos del sistema |
+| Privacidad local | Operativo | RUT hasheado; nombres y correos cifrados; secretos fuera de Git |
+| Importador académico | Operativo en piloto | Previsualización y edición antes de aprobar hitos |
+| Reservas de espacios | En mejora | Validación de choques disponible; falta pulir la experiencia visual |
+| Sincronización entrante Google | Pendiente | Falta reconciliación automática robusta desde Calendar hacia la app |
+| Multi-centro | Pendiente | Dirección prevista para una segunda fase |
 
-El piloto ya permite aprobar hitos importados antes de publicarlos, recibir solicitudes de nuevas integrantes y separar quién hizo cada cambio. La escala universidad pasa por capas multi-centro y un despliegue permanente endurecido.
+## Demo Pública
 
-## Cerrar el piloto Psicología
+La demostración temporal se publica mediante Cloudflare Tunnel:
 
-```mermaid
-graph LR
-    A["1. Recibir datos autorizados<br/>nombre, RUT y rol"] --> B["2. Aprobar accesos<br/>desde panel admin"]
-    B --> C["3. Cargar calendario<br/>academico real"]
-    C --> D["4. Probar eventos<br/>sync y avisos"]
-    D --> E["5. Definir hosting<br/>permanente"]
-```
+- Sitio: [https://ccaa.drakescraft.cl](https://ccaa.drakescraft.cl)
+- Entorno actual: instancia de desarrollo local expuesta por túnel
+- Producción objetivo: VPS Linux, PostgreSQL, proxy HTTPS y respaldos
 
-## Problema y solución
+La disponibilidad de la demo depende de que el equipo de desarrollo y el túnel estén
+encendidos. No representa todavía un despliegue productivo permanente.
 
-```mermaid
-graph LR
-    X["Antes<br/>chats mezclados<br/>calendarios personales<br/>sin trazabilidad"] -->|"piloto Psicologia"| Y["Con CCAACalendar<br/>calendario oficial<br/>roles internos<br/>auditoria por RUT"]
-```
+## Modelo De Acceso
 
-## Dos cuentas, dos roles
+La cuenta Google del centro **no es una cuenta de inicio de sesión para las integrantes**.
+Sirve únicamente como calendario y remitente institucional.
 
-```mermaid
-graph TD
-    A["Cuenta Google oficial del centro<br/>una sola conexion OAuth"] -->|"agenda institucional"| B["CCAACalendar"]
-    C["Integrante<br/>RUT y clave propia"] -->|"acciones identificadas"| B
-    B -->|"avisos voluntarios"| D["Correo personal<br/>sin calendario personal"]
-```
+### Integrante ya autorizada
 
-## Arquitectura técnica
+1. Ingresa su RUT.
+2. Si es primera vez, crea su clave personal.
+3. Si ya activó su cuenta, inicia sesión.
+4. Según su rol, puede consultar, editar eventos o administrar accesos.
 
-```mermaid
-graph TD
-    A["Integrante autorizada<br/>RUT y clave"] --> W["PWA web"]
-    W --> API["FastAPI"]
-    API --> DB["SQLite local<br/>PostgreSQL objetivo"]
-    API --> AUD["Auditoria y roles"]
-    API --> FER["Feriados Chile"]
-    API --> Q["Cola de correos"]
-    Q --> WK["Worker de avisos"]
-    API --> OAUTH["OAuth Google"]
-    OAUTH --> G["Calendar y Gmail<br/>cuenta del centro"]
-    WK --> G
-    LEG["Calendario Castel<br/>referencia funcional"] -.-> API
-```
+### Integrante que aún no tiene acceso
 
-## Flujos principales
+1. Selecciona **Solicitar acceso al centro**.
+2. Completa nombre, RUT, correo, rol solicitado y consentimiento.
+3. La solicitud queda pendiente; no obtiene permisos automáticamente.
+4. Una administradora recibe el aviso y revisa la solicitud en el panel.
+5. Si es aprobada, la integrante vuelve a verificar su RUT y crea su clave personal.
 
-### Acceso con RUT
+### Roles
 
-```mermaid
-graph TD
-    S["Ingresa RUT"] --> L{"Acceso habilitado"}
-    L -->|"No"| R["Solicitar acceso al centro"]
-    R --> V{"Revision administrativa"}
-    V -->|"Pendiente o rechazo"| B["Sin permiso de edicion"]
-    V -->|"Aprobado"| A["Crear clave personal"]
-    L -->|"Primera vez"| A
-    L -->|"Cuenta activa"| I["Iniciar sesion"]
-    A --> P["Panel CCAACalendar"]
-    I --> P
-```
+| Rol | Alcance |
+| --- | --- |
+| `viewer` | Consulta información interna permitida |
+| `editor` | Crea y modifica actividades o reservas |
+| `admin` | Revisa solicitudes, gestiona integrantes y conecta integraciones |
+| `owner` | Control administrativo ampliado del centro |
 
-### Crear evento, Google y correos
+## Privacidad Y Seguridad
 
-```mermaid
-graph LR
-    I["Integrante crea evento"] --> P["CCAACalendar valida y guarda"]
-    P --> G["Publica en Google Calendar"]
-    P --> Q["Encola avisos"]
-    Q --> M["Gmail envia recordatorios"]
-    P --> N["Alerta opcional<br/>en navegador"]
-```
+Este repositorio es público, pero los datos operativos privados no forman parte de Git.
 
-### Reserva de auditorio
+| Dato | Tratamiento |
+| --- | --- |
+| RUT | Hash HMAC con pepper privado y versión enmascarada para UI |
+| Nombre y correo | Cifrado autenticado mediante `PII_ENCRYPTION_KEYS` |
+| Contraseñas | Hash seguro; nunca se almacenan en texto claro |
+| Tokens Google OAuth | Archivo local protegido, fuera del repositorio |
+| Solicitudes de acceso | Cifradas, auditadas y sujetas a aprobación |
+| Formulario público | Deduplicación por RUT pendiente y límite anti-spam básico |
 
-```mermaid
-graph TD
-    A["Integrante pide horario"] --> B{"Existe conflicto"}
-    B -->|"No"| C["Reserva confirmada<br/>visible en calendario"]
-    B -->|"Si"| D["Solicitud rechazada<br/>elegir otro bloque"]
-    C --> E["Ocupacion compartida<br/>en futuras capas"]
-```
-
-### Conectar Google del centro (una vez)
-
-```mermaid
-graph LR
-    S["Directiva autenticada"] --> L["Conectar Google oficial"]
-    L --> O["Consentimiento Google<br/>Calendar y Gmail"]
-    O --> T["Token protegido<br/>fuera del repositorio"]
-    T --> U["Sincronizacion y correos activos"]
-```
-
-## Visión multi-centro
-
-```mermaid
-graph TD
-    APP["CCAACalendar<br/>una plataforma"] --> P["Psicologia<br/>piloto activo"]
-    APP --> K["Kinesiologia<br/>futuro"]
-    APP --> EN["Enfermeria<br/>futuro"]
-    APP --> V["Veterinaria<br/>futuro"]
-    APP --> DAE["DAE<br/>futuro"]
-    P --> ESP["Espacios compartidos<br/>auditorio y salas"]
-```
-
-## Roadmap
-
-```mermaid
-graph LR
-    H["Hecho<br/>auth RUT, solicitudes, PWA<br/>Google, Gmail e importador"] --> S["Siguiente<br/>calendario pulido<br/>espacios y filtros"]
-    S --> P["Preproduccion<br/>VPS y PostgreSQL<br/>sesiones endurecidas"]
-    P --> M["Escala<br/>multi-centro<br/>permisos por organizacion"]
-```
-
-## Stack
-
-```mermaid
-graph LR
-    FE["HTML, CSS y JavaScript<br/>PWA"] --> BE["Python y FastAPI"]
-    BE --> ORM["SQLAlchemy y Alembic"]
-    ORM --> DB["SQLite local<br/>PostgreSQL objetivo"]
-    BE --> G["Google Calendar y Gmail APIs"]
-    BE --> T["Pytest y Ruff"]
-```
-
-## Estructura del repo
+No subir nunca:
 
 ```text
-backend/ccaa_calendar/          Producto FastAPI
-  api/                          REST, auth y bandeja admin
-  domain/                       RUT, feriados y proteccion PII
-  integrations/                 OAuth, Calendar y correos HTML
-  workers/                      Cola de correos y recordatorios
-  web/static/                   PWA responsive
-docs/                           Producto y marca
-legacy/castel-calendar/         Referencia UI
-migrations/                     Alembic, incluida tabla de solicitudes
-tests/                          API, seguridad y flujos del piloto
+.env
+.local/
+client_secret_*.json
+google_token.json
+admin_roster.json real
+credenciales de Cloudflare o del servidor
 ```
 
-## Quickstart
+## Google Calendar Y Gmail
 
-```powershell
-uv sync
-uv run uvicorn ccaa_calendar.main:app --app-dir backend --reload
-```
+El piloto usa una sola cuenta oficial del centro:
 
-Abrir `http://127.0.0.1:8000/` · Health: `GET /api/health`
+| Uso | API / Scope |
+| --- | --- |
+| Crear, editar y cancelar eventos institucionales | Google Calendar API · `calendar.events` |
+| Avisos, recordatorios y correos operativos | Gmail API · `gmail.send` |
 
-```powershell
-uv run ruff check .
-uv run pytest
-uv run alembic upgrade head
-```
-
-## Google Cloud (conexión del centro)
-
-```mermaid
-graph TD
-    GC["Proyecto Google Cloud"] --> CA["Google Calendar API"]
-    GC --> GM["Gmail API"]
-    GC --> O["Cliente OAuth web"]
-    O --> R["Redirect local y publico"]
-    O --> U["Cuenta oficial autorizada"]
-    U --> OK["Sync de eventos y avisos activos"]
-```
-
-Redirect público utilizado en la demo:
+Redirect público usado en la demo:
 
 ```text
 https://ccaa.drakescraft.cl/api/integrations/google/callback
 ```
 
-Scopes autorizados actualmente: `calendar.events` y `gmail.send`.
+La autorización OAuth se realiza desde el panel administrativo. No se solicita ni se
+almacena la contraseña de la cuenta Google.
 
-## API y rutas web
+## Funcionalidad Disponible
 
-```mermaid
-graph TD
-    WEB["PWA"] --> AUTH["Auth<br/>lookup, activate y login"]
-    WEB --> REQ["Solicitud de acceso<br/>access-requests"]
-    WEB --> CAL["Calendario<br/>events y holidays"]
-    WEB --> SPA["Espacios<br/>reservations"]
-    AUTH --> ADM["Administracion<br/>users y audit"]
-    REQ --> ADM
-    CAL --> G["Google<br/>OAuth y sync"]
-    SPA --> G
+### Calendario
+
+- Vista mensual y agenda del día.
+- Eventos del centro, categorías y feriados chilenos.
+- Creación, edición y cancelación de eventos.
+- Sincronización de eventos propios hacia Google Calendar.
+- Alertas del navegador y avisos por correo.
+
+### Administración
+
+- Usuarios internos con roles.
+- Solicitudes de acceso pendientes, aprobadas o rechazadas.
+- Reintento de aviso por correo si una notificación falla.
+- Auditoría de accesos y decisiones administrativas.
+
+### Importación Académica
+
+- Lectura inicial de archivos CSV, Excel, Word, PDF o TXT.
+- Previsualización de hitos encontrados.
+- Edición manual de título, fecha, categoría y descripción.
+- Publicación solo después de la aprobación administrativa.
+
+### Espacios
+
+- Registro de espacios compartidos.
+- Creación de reservas.
+- Rechazo de horarios solapados.
+- Base preparada para una futura vista multi-centro.
+
+## Arquitectura
+
+| Capa | Tecnología / Responsabilidad |
+| --- | --- |
+| Frontend | HTML, CSS y JavaScript servido como PWA |
+| Backend | Python + FastAPI |
+| Persistencia local | SQLite |
+| Persistencia objetivo | PostgreSQL con migraciones Alembic |
+| Integraciones | Google Calendar API y Gmail API mediante OAuth 2.0 |
+| Seguridad | Hash de claves, cifrado PII, auditoría y control de roles |
+| Referencia heredada | Calendario Castel conservado en `legacy/castel-calendar` |
+
+## Estructura Del Repositorio
+
+```text
+backend/ccaa_calendar/
+  api/                          API REST, auth y panel admin
+  domain/                       RUT, feriados y protección de datos
+  integrations/                 OAuth, Calendar y correos HTML
+  workers/                      Cola de correos y recordatorios
+  web/static/                   PWA responsive
+docs/                           Requerimientos, despliegue y marca
+legacy/castel-calendar/         Referencia funcional de Castel
+migrations/                     Migraciones Alembic
+tests/                          Pruebas de API, seguridad y flujos
 ```
 
-Detalle en código: prefijo `/api` · PWA en `/`, `/app`, `/login`, `sw.js`. Las solicitudes públicas quedan pendientes hasta una aprobación administrativa y no crean claves automáticamente.
+## API Principal
 
-## Variables y secretos
+| Área | Rutas principales |
+| --- | --- |
+| Salud | `GET /api/health` |
+| Acceso | `POST /api/auth/lookup`, `POST /api/auth/activate`, `POST /api/auth/login` |
+| Solicitudes | `POST /api/auth/access-requests` |
+| Administración | `GET /api/admin/users`, `GET /api/admin/access-requests`, `GET /api/admin/audit` |
+| Decisiones admin | `PATCH /api/admin/access-requests/{id}`, `POST /api/admin/access-requests/{id}/notify` |
+| Eventos | `/api/events` |
+| Espacios | `/api/spaces`, `/api/spaces/reservations` |
+| Feriados | `GET /api/holidays?year=2026` |
+| Google | `/api/integrations/google/status`, `/authorize-url`, `/callback` |
 
-Copiar [`.env.example`](.env.example). **No subir:** `.env`, `.local/`, tokens OAuth, roster real, credenciales de túnel.
+Rutas web: `/`, `/login`, `/app`, `/manifest.webmanifest`, `/sw.js`, `/offline`.
 
-## Identidad visual
+## Quickstart Local
+
+```powershell
+uv sync
+uv run alembic upgrade head
+uv run uvicorn ccaa_calendar.main:app --app-dir backend --host 127.0.0.1 --port 8000
+```
+
+Abrir:
+
+```text
+http://127.0.0.1:8000
+```
+
+Validar:
+
+```powershell
+uv run ruff check .
+uv run pytest
+```
+
+## Próximos Pasos
+
+1. Recibir y aprobar los datos autorizados de las integrantes del centro.
+2. Cargar el calendario académico real y revisar hitos antes de publicarlos.
+3. Validar con el centro la creación de eventos, sincronización y avisos.
+4. Mejorar reservas visuales, filtros y vista de espacios.
+5. Migrar a un despliegue permanente con PostgreSQL y respaldos.
+6. Preparar la arquitectura multi-centro cuando el piloto esté consolidado.
+
+## Identidad Visual
 
 | Asset | Ruta |
 | --- | --- |
@@ -245,10 +233,6 @@ Copiar [`.env.example`](.env.example). **No subir:** `.env`, `.local/`, tokens O
 | UI / icono | [`backend/ccaa_calendar/web/static`](backend/ccaa_calendar/web/static) |
 
 Paleta: naranjo `#ff7a2f` · violeta `#8f5cff` · dorado `#ffd166` · fondo `#160f1f`.
-
-## Castel como base
-
-[`legacy/castel-calendar`](legacy/castel-calendar) aporta ideas de calendario, reservas y avisos. La runtime nueva es Python/FastAPI + SQL.
 
 ## Documentación
 
