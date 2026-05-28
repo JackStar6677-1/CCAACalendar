@@ -56,6 +56,11 @@ El ejemplo clave es el auditorio:
 - Otros centros pueden elegir otro bloque sin choque.
 - DAE o la universidad tambien debe poder publicar ocupaciones de espacios.
 
+Para el piloto de Psicologia, la aprobacion real del espacio ocurre fuera de
+CCAACalendar, normalmente por coordinacion previa con DAE u otras unidades. La
+app debe registrar el espacio usado como dato informativo y visible para la
+organizacion interna, no reemplazar el flujo institucional de autorizacion.
+
 ## Funciones priorizadas
 
 1. Calendario por capas o centros.
@@ -92,6 +97,28 @@ El ejemplo clave es el auditorio:
 | Multi-centro y capas | Pendiente (modelo listo) |
 | Sync bidireccional Google | Parcial (publicación/actualización/cancelación; falta reconciliación automática) |
 | Anuncios y estadísticas | Pendiente |
+
+## Configuracion recibida del piloto
+
+La nomina privada del centro ya fue recibida para la fase inicial y debe
+mantenerse fuera del repositorio publico. El roster real se carga en
+`.local/admin_roster.json` o en la base protegida del despliegue.
+
+Confirmado:
+
+- cuenta Google oficial autorizada por presidencia del centro
+- permiso para enviar correos y recordatorios mediante la cuenta oficial
+- recordatorios utiles: 24 horas antes, 1 hora antes y avisos de modificacion
+- notificaciones solo para eventos operativos del centro, no para vacaciones o
+  semanas academicas informativas por defecto
+- espacios flexibles/manuales, porque la aprobacion institucional ocurre fuera
+  de la plataforma
+
+Pendiente:
+
+- recibir el calendario academico anual oficial en PDF, Word o Excel
+- confirmar nombres finales de categorias visibles si quieren etiquetas
+  distintas a las del piloto
 
 Ver tabla detallada en el [README](../README.md#avance-frente-a-lo-pedido-resumen-kika--ccaa).
 

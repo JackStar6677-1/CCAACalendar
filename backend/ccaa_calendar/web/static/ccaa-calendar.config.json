@@ -3,9 +3,34 @@
     "organization": "Centro de Estudiantes de Psicología · UDLA Maipú",
     "center": "Psicología",
     "university": "Universidad de las Américas (UDLA)",
-    "campus": "Maipú"
+    "campus": "Maipú",
     "calendarOwnerLabel": "Cuenta oficial del centro",
     "monthLabel": "Calendario oficial"
+  },
+  "accessPolicy": {
+    "identity": "RUT + clave interna",
+    "googleAccountUse": "Solo la directiva conecta la cuenta Google oficial del centro",
+    "activation": "Cada integrante crea su propia clave al primer ingreso"
+  },
+  "eventTypes": [
+    { "id": "reunion", "label": "Reunión" },
+    { "id": "actividad-centro", "label": "Actividad del centro" },
+    { "id": "asamblea", "label": "Asamblea" },
+    { "id": "evento-academico", "label": "Evento académico" },
+    { "id": "espacio-aprobado", "label": "Uso de espacio ya aprobado" },
+    { "id": "difusion", "label": "Difusión" },
+    { "id": "otro", "label": "Otro" }
+  ],
+  "spacePolicy": {
+    "mode": "manual_informativo",
+    "approvalOwner": "DAE / unidades institucionales externas",
+    "summary": "CCAACalendar registra y visualiza espacios ya coordinados fuera del sistema; no reemplaza la aprobación institucional.",
+    "examples": ["Auditorio", "Sala", "Pasillo", "Quincho", "Espacio abierto", "Espacio techado"]
+  },
+  "reminders": {
+    "emailMinutes": [1440, 60],
+    "browserMinutes": [30],
+    "skipByDefaultFor": ["vacaciones", "semanas de cátedras", "feriados informativos"]
   },
   "modules": [
     {
@@ -23,19 +48,14 @@
     {
       "id": "spaces",
       "label": "Espacios",
-      "status": "En diseño",
-      "detail": "Reservas y bloqueos se migran desde la logica de Castel."
+      "status": "Piloto informativo",
+      "detail": "Registro manual de espacios ya aprobados por DAE o unidades externas."
     },
     {
       "id": "google",
       "label": "Google Calendar",
-      "status": "Conectar",
-      "detail": "OAuth del calendario oficial sin publicar datos sensibles."
+      "status": "Cuenta oficial",
+      "detail": "OAuth del calendario del centro; las integrantes no comparten la clave de Gmail."
     }
-  ],
-  "spaces": [
-    { "id": "auditorio", "label": "Auditorio", "capacity": 120, "state": "Bloque critico" },
-    { "id": "sala-reunion", "label": "Sala de reuniones", "capacity": 18, "state": "Disponible" },
-    { "id": "hall", "label": "Hall central", "capacity": 80, "state": "Coordinar DAE" }
   ]
 }

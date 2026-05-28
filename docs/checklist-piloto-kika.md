@@ -16,6 +16,20 @@ Solicitar por cada integrante que tendra acceso:
 No solicitar contrasenas. Cada integrante debe crear su propia clave dentro de
 CCAACalendar.
 
+### Estado del piloto Psicologia
+
+Kika ya envio una primera nomina privada de integrantes para el piloto. Esa
+nomina no debe copiarse en este documento ni en GitHub: se carga solamente en
+el entorno local o de produccion mediante el roster protegido.
+
+El criterio inicial queda asi:
+
+- presidencia/tesoreria: rol administrador
+- vicepresidencia/secretaria, redes/marketing, voceria y editoras: rol editor
+- todas crean su propia clave al entrar por primera vez con RUT
+- los correos personales se usan para recuperacion de clave y avisos, si la
+  integrante mantiene activados los correos en su perfil
+
 ## Cuenta Google oficial
 
 Confirmar:
@@ -26,6 +40,11 @@ Confirmar:
 
 No solicitar ni compartir la contrasena de Google.
 
+Estado actual: la presidencia del centro queda como responsable de autorizar
+la conexion OAuth de la cuenta oficial. Se autorizo el uso de Gmail API para
+correos de aviso y recordatorios desde esa cuenta, siempre sin pedir ni guardar
+la contrasena de Google.
+
 ## Contenido del calendario
 
 Solicitar:
@@ -35,6 +54,9 @@ Solicitar:
 - eventos que deben ser privados del centro y eventos visibles para otros centros
 - plazos de recordatorio deseados, por ejemplo 24 horas y 1 hora antes
 
+Pendiente principal: recibir el calendario academico oficial en PDF, Word o
+Excel para importarlo con previsualizacion y edicion previa.
+
 ## Espacios y coordinacion
 
 Para que el sistema deje de ser solo calendario, confirmar:
@@ -43,6 +65,19 @@ Para que el sistema deje de ser solo calendario, confirmar:
 - horarios permitidos y reglas de choque
 - quien aprueba o administra reservas
 - si DAE u otros centros entraran en una siguiente fase
+
+Decision recibida para el piloto: CCAACalendar no aprueba reservas frente a
+DAE. La plataforma registra y muestra actividades o espacios que ya fueron
+coordinados externamente con la universidad. Por eso el campo de espacio debe
+seguir siendo flexible/manual y no depender solo de una lista cerrada.
+
+Ejemplos esperados:
+
+- auditorios
+- salas
+- pasillos
+- quinchos
+- espacios abiertos o techados
 
 ## Tratamiento de datos
 
